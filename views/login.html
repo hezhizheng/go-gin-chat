@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>go-gin-chat 聊天室</title>
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/stylesheets/style.css">
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
+    <script type="text/javascript" src="/static/javascripts/jquery-1.11.2.min.js"></script>
+    <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
+    <script type="text/javascript" src="/static/javascripts/Public.js"></script>
+</head>
+<body class="login">
+<div class="scrollbar-macosx">
+    <div class="main container ">
+        <div class="jumbotron">
+            <h3>欢迎来到 go-gin-chat 聊天室，请先登录</h3>
+            <p class="user_portrait">
+                <img portrait_id="1" src="/static/images/user/1.png" alt="portrait_1">
+            </p>
+            <p class="select_portrait">
+                <img portrait_id="1" src="/static/images/user/1.png" alt="portrait_1" class="t">
+                <img portrait_id="2" src="/static/images/user/2.png" alt="portrait_1">
+                <img portrait_id="3" src="/static/images/user/3.png" alt="portrait_1">
+                <img portrait_id="4" src="/static/images/user/4.png" alt="portrait_1">
+                <img portrait_id="5" src="/static/images/user/5.png" alt="portrait_1">
+                <img portrait_id="6" src="/static/images/user/6.png" alt="portrait_1">
+                <img portrait_id="7" src="/static/images/user/7.png" alt="portrait_1">
+                <img portrait_id="8" src="/static/images/user/8.png" alt="portrait_1">
+                <img portrait_id="9" src="/static/images/user/9.png" alt="portrait_1">
+                <img portrait_id="10" src="/static/images/user/10.png" alt="portrait_1">
+                <img portrait_id="11" src="/static/images/user/11.png" alt="portrait_1">
+                <img portrait_id="12" src="/static/images/user/12.png" alt="portrait_1">
+            </p>
+
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="输入你的昵称，不少于两位" required>
+
+                <input type="password" class="form-control" placeholder="密码，不少于6位" required>
+
+                <button id="login" class="btn btn-default" type="submit">
+                    <span class="">登录/注册</span>
+                </button>
+            </div>
+        </div>
+        <div class="footer">
+            <span>{{ .OnlineUserCount }}</span> 人在线热聊中！
+        </div>
+    </div>
+</div>
+</body>
+<script>
+
+    // 回车键登录
+    $(document).keyup(function(event){
+        if(event.keyCode === 13){
+            $("#login").trigger("click");
+        }
+    });
+
+</script>
+</html>

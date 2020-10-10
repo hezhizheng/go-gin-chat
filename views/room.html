@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>go-gin-chat 聊天室</title>
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/rolling/css/rolling.css">
+    <link rel="stylesheet" href="/static/stylesheets/style.css">
+    <link rel="stylesheet" href="/static/emoji/emojionearea.min.css">
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
+
+    <script type="text/javascript" src="/static/javascripts/jquery-1.11.2.min.js"></script>
+    <script type="text/javascript" src="/static/bootstrap/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
+    <script type="text/javascript" src="/static/javascripts/Public.js"></script>
+    <script type="text/javascript" src="/static/emoji/emojionearea.min.js"></script>
+
+</head>
+<body id="body-room" class="room" data-uid="{{ .user_info.uid }}" data-username="{{ .user_info.username }}"
+      data-avatar_id="{{ .user_info.avatar_id }}">
+
+<div class="scrollbar-macosx">
+    <div class="header">
+        <div class="toptext">
+            欢迎您 {{ .user_info.username }}
+        </div>
+
+        <ul class="topnavlist">
+{{/*            <li class="userlist">*/}}
+{{/*                <a><span class="glyphicon glyphicon-th-list"></span>用户列表</a>*/}}
+{{/*                <div class="popover fade bottom in">*/}}
+{{/*                    <div class="arrow"></div>*/}}
+{{/*                    <h3 class="popover-title">在线用户18人</h3>*/}}
+{{/*                    <div class="popover-content scrollbar-macosx">*/}}
+{{/*                        <ul>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                            <li>*/}}
+{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
+{{/*                                <b>美国队长</b>*/}}
+{{/*                            </li>*/}}
+{{/*                        </ul>*/}}
+{{/*                    </div>*/}}
+{{/*                </div>*/}}
+{{/*            </li>*/}}
+            <li><a href="/logout"> 退出登录 </a></li>
+        </ul>
+        <div class="clapboard hidden"></div>
+    </div>
+    <div class="main container">
+        <div class="col-md-12">
+            <ul class="chat_info">
+
+
+                {{$uid:= .user_info.uid}}
+                {{$nullSrl:= ""}}
+
+                {{range .msg_list}}
+
+                    {{if eq $uid .user_id}}
+
+                        <li class="right">
+                            <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
+                            <b>{{ .username }}</b>
+                            <i>{{ .created_at }}</i>
+
+                            {{ if eq .image_url $nullSrl }}
+
+                            <div>{{ .content }}</div>
+                                {{else}}
+                            <div><img src="{{ .image_url }}"/></div>
+                                {{end}}
+                        </li>
+
+                    {{else}}
+
+                        <li class="left">
+                            <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
+                            <b>{{ .username }}</b>
+                            <i>{{ .created_at }}</i>
+                            {{ if eq .image_url $nullSrl }}
+
+                                <div>{{ .content }}</div>
+                            {{else}}
+                                <div><img src="{{ .image_url }}"/></div>
+                            {{end}}
+                        </li>
+
+                    {{end}}
+                {{end}}
+
+
+            </ul>
+        </div>
+    </div>
+    <div class="input">
+        <div class="center">
+            <div class="tools">
+
+                <span class="glyphicon glyphicon-picture imgFileico"></span>
+
+                <input type="file" class="imgFileBtn hidden" accept="image/*">
+
+            </div>
+            <div class="text">
+                <div class="col-xs-12 col-sm-12">
+                    <input type="text" id="emojionearea2" placeholder="输入聊天信息...">
+                </div>
+            </div>
+            <div class="_submit">
+                <div class="col-xs-12 col-sm-12 text-right">
+                    <a id="subxx" role="button"><span class="glyphicon glyphicon-share-alt"></span></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+
+
+<script>
+
+    $(document).ready(function () {
+        // WebSocketConnect
+        WebSocketConnect({{ .user_info.uid }},{{ .user_info.username }})
+
+        // 滚动到底部
+        $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
+            scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
+        }, 500);
+    });
+</script>
+
+<script>
+    $("#emojionearea2").emojioneArea({
+        pickerPosition: "top",
+        tonesStyle: "radio",
+        events: {
+            keyup: function (editor, event) {
+                if (event.which == 13) {
+                    // let x = editor.emojioneArea.getText()
+                    $('#subxx').click();
+                    //$('.text input').reset(); // 清空输入框
+                    //$(this).focus(); // 输入框获取焦点
+                }
+            }
+        }
+    })
+</script>
+
+</html>

@@ -1,0 +1,6 @@
+.idea
+/conf/config.go
+/tmp
+/tmp_images
+*.exe
+*.exe~

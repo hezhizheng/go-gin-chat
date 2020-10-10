@@ -1,0 +1,388 @@
+/* 
+* @Author: sublime text
+* @Date:   2015-09-30 12:12:19
+* @Last Modified by:   sublime text
+* @Last Modified time: 2015-10-05 21:07:47
+*/
+
+ /*                                                                  全局                      */
+
+.login{
+	background: url('../images/login_bg.jpg') no-repeat fixed top;
+	background-size: cover;
+}
+.rooms{
+
+	background: url('../images/theme/1_bg.jpg') no-repeat fixed top;
+	background-size: cover;
+}
+.room{
+	background: url('../images/theme/12_mh.jpg') no-repeat fixed top;
+	background-size: cover
+}
+
+
+
+
+body>.scrollbar-macosx{
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+	overflow: hidden;
+}
+a{
+	cursor: pointer;
+	color: #eee;
+	text-decoration: none;
+}
+a:hover{
+	color: #fff;
+	text-decoration: none;
+}
+ul{
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+.container{
+	margin-top: 35px;
+	max-width: 992px;
+}
+
+.header{
+	position: fixed;
+	z-index: 7778;
+	width: 100%;
+	height: 35px;
+	background: url('../images/header_bg.png') repeat-x;
+	color: #eee;
+}
+.header .toptext{
+	line-height: 35px;
+	padding: 0 15px;
+	float: left;
+}
+.header .topnavlist{
+	float: right;
+}
+.header .topnavlist>li{
+	width: 75px;
+	height: 35px;
+	line-height: 35px;
+	text-align: center;
+	float: left;
+}
+.header .topnavlist li a{
+	display: block;
+	position: relative;
+	z-index: 8889;
+	width: 75px;
+	height: 35px;
+}
+.header .popover{
+	position: relative;
+	z-index: 8889;
+	left: -235px;
+	color: #000;
+	max-width: 300px;
+	width: 300px;
+}
+.header .popover-content{
+	text-align: center;
+	padding: 0;
+}
+.header .userinfo .popover{
+	left: -160px;
+}
+.header .userinfo .popover .arrow{
+	margin-left: 45px;
+}
+.header .userinfo .user_portrait{
+	padding-top: 10px;
+}
+.header .userinfo .user_portrait img{
+	width: 100px;
+	height: 100px;
+}
+.login .select_portrait img,
+.header .userinfo .select_portrait img{
+	width: 18px;
+	height: 18px;
+	opacity: .5;
+	cursor: pointer;
+}
+.login .select_portrait .t,
+.header .userinfo .select_portrait .t{
+	opacity: 1;
+}
+.login .select_portrait img:hover,
+.header .userinfo .select_portrait img:hover{
+	opacity: 1;
+}
+.header .userinfo .user_name{
+	padding: 0 5px;
+}
+.header .userinfo .user_name input{
+	margin-bottom: 10px;
+}
+.header .userinfo .user_name input,
+.header .userinfo .user_name button{
+	border-radius: 0;
+}
+.header .theme .popover{
+	left: -235px;
+}
+.header .theme .popover .arrow{
+	margin-left: 115px;
+}
+.header .theme .popover img{
+	margin: 5px;
+	width: 80px;
+	height: 65px;
+}
+.header .theme .popover img:hover{
+	position: relative;
+	top: -3px;
+	box-shadow: 0 3px 15px #000;
+}
+
+
+
+
+
+.header li.userlist{
+	width: 100px;
+}
+.header .userlist .popover{
+	left: -80px;
+	width: 175px;
+}
+.header .userlist .popover-content{
+	max-height: 400px;
+}
+.header .userlist .popover .arrow{
+	margin-left: 20px;
+}
+.header .userlist .popover li{
+	text-align: left;
+	height: 35px;
+	line-height: 35px;
+	padding: 0 5px;
+}
+.header .userlist .popover li:hover{
+	background-color: #bbb;
+	cursor: pointer;
+}
+.header .userlist .popover li img{
+	width: 25px;
+	height: 25px;
+}
+.header .clapboard{
+	position: fixed;
+	z-index: 8888;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+	background-color: rgba(0,0,0,0.5);
+}
+
+ /*  -------------------------------------------------------login------------------------------- */
+
+.login .jumbotron{
+	background: none;
+	text-align: center;
+}
+
+
+
+.login .input-group{
+	margin: 30px auto;
+	max-width: 300px;
+}
+
+.login .input-group input{
+	margin: 10px auto;
+}
+
+.login input:hover{
+	background-color: #fff;
+	box-shadow: none;
+}
+.login .input-group .btn{
+	border-left: none;
+}
+.login .input-group .btn:hover{
+	background-color: #fff;
+	box-shadow: none;
+	border-color: #ccc;
+}
+.login .footer{
+	font-size: 20px;
+	position: fixed;
+	z-index: 8888;
+	left: 0;
+	bottom: 0;
+	width: 100%;
+	height: 35px;
+	line-height: 35px;
+	text-align: center;
+	color: #eee;
+	background-color: rgba(0,0,0,.3);
+}
+
+
+.login .footer span{
+	color: #f00;
+}
+
+
+ /*  -------------------------------------------------------rooms------------------------------- */
+
+.rooms .room_list{
+	margin-top: 35px;
+}
+.rooms .room_list a>span {
+	position: absolute;
+	bottom: 30px;
+	right: 30px;
+	color: #272;
+}
+
+
+ /*  -------------------------------------------------------room------------------------------- */
+
+.room .chat_info{
+	margin-bottom: 115px;
+}
+.room .chat_info li{
+	margin-top: 15px;
+	overflow: hidden;
+}
+.room .chat_info li>img{
+	width: 50px;
+	height: 50px;
+	margin: 0 5px;
+}
+.room .chat_info i{
+	display: block;
+	margin-bottom: 10px;
+}
+.room .chat_info div{
+	text-align: left;
+	padding: 5px;
+	background-color: #D0D7DF;
+	margin: 0 60px;
+	word-break: break-all;
+}
+.room .chat_info div>img{
+	max-width: 100%;
+	max-height: 250px;
+}
+.room .chat_info .left{
+	text-align: left;
+}
+.room .chat_info .right{
+	text-align: right;
+}
+.room .chat_info  .left img,
+.room .chat_info .left div{
+	float: left;
+}
+.room .chat_info .right>img,
+.room .chat_info .right>div{
+	float: right;
+}
+.room .chat_info .systeminfo span{
+	display: block;
+	width: 200px;
+	margin: 0 auto;
+	text-align: center;
+	border-radius: 20px;
+	font-size: 12px;
+}
+.room .input{
+	position: fixed;
+	z-index: 7777;
+	bottom: 0;
+	width: 100%;
+}
+.room .input .center{
+	max-width: 910px;
+	width: 100%;
+	height: 120px;
+	margin: 0 auto;
+	background: url('../images/room_input_bg.png');
+}
+.room .input .tools{
+	height: 25px;
+	line-height: 25px;
+	margin-bottom: 10px;
+	margin-left: 15px;
+}
+.room .input .tools span{
+	padding: 15px;
+	cursor: pointer;
+	color: #eee;
+	font-size: 20px;
+}
+.room .input .tools span:hover{
+	color: #58f;
+}
+
+
+.room .input .faces{
+	max-width: 288px;
+	position: relative;
+	top: -265px;
+	left: -1px;
+	z-index: 8889;
+}
+.room .input .faces.popover .arrow{
+	margin-left: -127px;
+}
+.room .input .faces img:hover{
+	box-shadow: 0 0 5px #000;
+}
+
+
+
+.room .input .text{
+	margin: 30px 15px 0;
+	/*overflow: hidden;*/
+	height: 34px;
+	line-height: 34px;
+}
+.room .input .text>div{
+	padding: 0 15px;
+	/*text-align: center;*/
+}
+
+.room .input ._submit{
+	margin: 0 15px 0;
+	height: 34px;
+	line-height: 34px;
+}
+
+.room .input ._submit>div{
+	padding: 0 15px;
+}
+
+.room .input .input .text input{
+	border-radius: 0;
+
+}
+.room .input .text a{
+	font-size: 25px;
+	color: #eee;
+}
+.room .input .text a:visited{
+	color: #eee;
+}
+.room .input .text a:hover{
+	color: #afa;
+}
+
+

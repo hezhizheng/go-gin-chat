@@ -119,7 +119,8 @@ $(document).ready(function(){
 				alert(res.msg);
 				return false;
 			}
-			window.location.href = '/room'; // 页面跳转
+			window.location.assign("/room");
+			//window.location.href = '/room'; // 页面跳转
 		});
 	});
 

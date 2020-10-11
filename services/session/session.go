@@ -58,14 +58,14 @@ func AuthSessionMiddle() gin.HandlerFunc {
 		session := sessions.Default(c)
 		sessionValue := session.Get("uid")
 		if sessionValue == nil {
-			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Redirect(http.StatusFound, "/")
 			return
 		}
 
 		uidInt, _ := strconv.Atoi(sessionValue.(string))
 
 		if uidInt <= 0 {
-			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Redirect(http.StatusFound, "/")
 			return
 		}
 

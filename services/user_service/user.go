@@ -81,6 +81,6 @@ func GetUserInfo(c *gin.Context) map[string]interface{} {
 
 func Logout(c *gin.Context)  {
 	session.ClearAuthSession(c)
-	c.Redirect(http.StatusMovedPermanently,"/")
+	c.Redirect(http.StatusFound,"/")
 	return
 }

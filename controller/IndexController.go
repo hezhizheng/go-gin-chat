@@ -12,7 +12,7 @@ func Index(c *gin.Context) {
     // 已登录跳转room界面，多页面应该考虑放在中间件实现
 	userInfo := user_service.GetUserInfo(c)
 	if len(userInfo) > 0  {
-		c.Redirect(http.StatusMovedPermanently,"/room")
+		c.Redirect(http.StatusFound,"/room")
 		return
 	}
 

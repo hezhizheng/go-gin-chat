@@ -74,7 +74,7 @@
 # 自行导入数据库文件 sql/go_gin_chat.sql
 git clone github.com/hezhizheng/go-gin-chat
 cd go-gin-chat
-cp conf/config.go.env config.go // 根据实际情况修改配置
+cp conf/config.go.env conf/config.go // 根据实际情况修改配置
 go-bindata -o=bindata/bindata.go -pkg=bindata ./static/... ./views/... // 安装请参考 https://blog.hi917.com/detail/87.html
 go run main.go 
 ```

@@ -51,6 +51,7 @@
 - 登录/注册(防止重复登录)
 - 群聊(支持文字、emoji、图片)
 - 历史消息查看(暂时仅支持最新100条)
+- 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js
 - go mod 包管理
 - 静态资源嵌入，运行只依赖编译好的可执行文件与mysql
 
@@ -131,7 +132,7 @@ server {
 - 修改静态文件需要执行 `go-bindata -o=bindata/bindata.go -pkg=bindata ./static/... ./views/...`  重新编译
 
 ## todo
-- [ ] 心跳机制
+- [x] 心跳机制
 - [ ] 多频道聊天
 - [ ] 私聊
 - [ ] 在线用户列表

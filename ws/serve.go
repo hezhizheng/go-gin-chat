@@ -68,9 +68,16 @@ func mainProcess(c *websocket.Conn) {
 		_, message, err := c.ReadMessage()
 		serveMsgStr := message
 
+		// 处理心跳响应 , heartbeat为与客户端约定的值
+		if string(serveMsgStr) == `heartbeat` {
+			c.WriteMessage(websocket.TextMessage, []byte(`{"status":0,"data":"heartbeat ok"}`))
+			mainProcess(c)
+		}
+
 		json.Unmarshal(message, &clientMsg)
 		if clientMsg.Data == nil {
 			return
+			//mainProcess(c)
 		}
 		log.Println("来自客户端的消息", clientMsg)
 

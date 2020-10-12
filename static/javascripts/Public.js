@@ -1,5 +1,16 @@
 
-let ws = new WebSocket("ws://"+ window.location.host +"/ws");
+const websocketHeartbeatJsOptions = {
+	url: "ws://"+ window.location.host +"/ws",
+	pingTimeout: 15000,
+	pongTimeout: 10000,
+	reconnectTimeout: 2000,
+	pingMsg: "heartbeat"
+}
+
+let websocketHeartbeatJs = new WebsocketHeartbeatJs(websocketHeartbeatJsOptions);
+
+let ws = websocketHeartbeatJs;
+// let ws = new WebSocket("ws://"+ window.location.host +"/ws");
 
 function _time(time = +new Date()) {
 	var date = new Date(time + 8 * 3600 * 1000); // 增加8小时
@@ -88,7 +99,7 @@ function WebSocketConnect(uid,username) {
 				"与服务器连接断开，请刷新页面重试" +
 				'</span></li>');
 			// let c = ws.close() // 主动close掉
-			console.log("serve 连接已关闭...");
+			console.log("serve 连接已关闭... " + _time());
 			// console.log(c);
 		};
 	} else {

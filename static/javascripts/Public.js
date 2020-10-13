@@ -246,9 +246,11 @@ $(document).ready(function(){
 
 	// 发送消息
 	
-	$('.text input').focus();
+	//$('.text input').focus();
+	$("#emojionearea2")[0].emojioneArea.setFocus()
 	$('#subxx').click(function(event) {
-		var str = $('.text input').val(); // 获取聊天内容
+		//var str = $('.text input').val(); // 获取聊天内容
+		var str = $("#emojionearea2")[0].emojioneArea.getText() // 获取聊天内容
 		str = str.replace(/\</g,'&lt;');
 		str = str.replace(/\>/g,'&gt;');
 		str = str.replace(/\n/g,'<br/>');
@@ -270,17 +272,15 @@ $(document).ready(function(){
 
 			ws.send(send_data);
 
-			// console.log("send",send_data);
-
-
 			// 滚动条滚到最下面
 			$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
 				scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
 			}, 500);
 
 		}
-		$('.text input').val(''); // 清空输入框
-		$('.text input').focus(); // 输入框获取焦点
+
+		$("#emojionearea2")[0].emojioneArea.setText("")
+		$("#emojionearea2")[0].emojioneArea.setFocus()
 	});
 
 

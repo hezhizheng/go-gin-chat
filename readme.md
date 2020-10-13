@@ -125,10 +125,16 @@ server {
         proxy_read_timeout 6000s;
    }
 ```
+## 编译可执行文件(跨平台)
 
+```
+# 用法参考 https://github.com/mitchellh/gox
+# 生成文件可直接执行 Linux
+gox -osarch="linux/amd64"
+......
+```
 
 ## Tip
-- 发送消息请点击发送按钮，回车键触发貌似有兼容性问题。。。
 - 修改静态文件需要执行 `go-bindata -o=bindata/bindata.go -pkg=bindata ./static/... ./views/...`  重新编译
 
 ## todo

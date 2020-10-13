@@ -71,7 +71,7 @@ func mainProcess(c *websocket.Conn) {
 		// 处理心跳响应 , heartbeat为与客户端约定的值
 		if string(serveMsgStr) == `heartbeat` {
 			c.WriteMessage(websocket.TextMessage, []byte(`{"status":0,"data":"heartbeat ok"}`))
-			mainProcess(c)
+			continue
 		}
 
 		json.Unmarshal(message, &clientMsg)

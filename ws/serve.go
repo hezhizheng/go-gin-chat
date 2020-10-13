@@ -19,6 +19,8 @@ type wsClients struct {
 	RemoteAddr string
 
 	uid float64
+
+	username string
 }
 
 // 存放客户端连接
@@ -79,12 +81,11 @@ func mainProcess(c *websocket.Conn) {
 			return
 			//mainProcess(c)
 		}
-		log.Println("来自客户端的消息", clientMsg)
+		//log.Println("来自客户端的消息", clientMsg)
 
 		if err != nil { // 离线通知
-			//log.Println("ReadMessage error1", err)
-			serveMsgStr = formatServeMsgStr(msgTypeOffline)
-			disconnect(c, string(serveMsgStr))
+			log.Println("ReadMessage error1", err)
+			disconnect(c)
 			c.Close()
 			return
 		}
@@ -98,8 +99,8 @@ func mainProcess(c *websocket.Conn) {
 			serveMsgStr = formatServeMsgStr(msgTypeSend)
 		}
 
-		log.Println("wsc.clients", wsc.clients)
-		log.Println("serveMsgStr", string(serveMsgStr))
+		//log.Println("wsc.clients", wsc.clients)
+		//log.Println("serveMsgStr", string(serveMsgStr))
 		notify(c, string(serveMsgStr))
 	}
 }
@@ -111,6 +112,7 @@ func handleConnClients(c *websocket.Conn) {
 			conn:       c,
 			RemoteAddr: c.RemoteAddr().String(),
 			uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
+			username: clientMsg.Data.(map[string]interface{})["username"].(string),
 		})
 	} else {
 		for cKey, cl := range wsc.clients {
@@ -129,6 +131,7 @@ func handleConnClients(c *websocket.Conn) {
 			conn:       c,
 			RemoteAddr: c.RemoteAddr().String(),
 			uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
+			username: clientMsg.Data.(map[string]interface{})["username"].(string),
 		})
 		mutex.Unlock()
 	}
@@ -144,10 +147,23 @@ func notify(conn *websocket.Conn, msg string) {
 }
 
 // 离线通知处理
-func disconnect(conn *websocket.Conn, name string) {
+func disconnect(conn *websocket.Conn) {
 	for index, con := range wsc.clients {
 		if con.RemoteAddr == conn.RemoteAddr().String() {
-			disMsg := name
+			data := map[string]interface{}{
+				"username": con.username,
+				"uid":      con.uid,
+				"time":     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+			}
+
+			jsonStrServeMsg := msg{
+				Status: msgTypeOffline,
+				Data:   data,
+			}
+			serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
+
+			disMsg := string(serveMsgStr)
+
 			mutex.Lock()
 			wsc.clients = append(wsc.clients[:index], wsc.clients[index+1:]...)
 			mutex.Unlock()

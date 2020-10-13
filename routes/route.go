@@ -31,13 +31,13 @@ func InitRoute() *gin.Engine {
 		sr.POST("/login", controller.Login)
 		sr.GET("/logout", controller.Logout)
 
-		//sr.GET("/home", controller.Home)
 
 		sr.GET("/ws", ws.Run)
 
 		authorized := sr.Group("/", session.AuthSessionMiddle())
 		{
-			authorized.GET("/room", controller.Room)
+			authorized.GET("/home", controller.Home)
+			authorized.GET("/room/:room_id", controller.Room)
 			authorized.POST("/img-kr-upload", controller.ImgKrUpload)
 		}
 

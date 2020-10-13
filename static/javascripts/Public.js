@@ -18,7 +18,7 @@ function _time(time = +new Date()) {
 	//return date.toJSON().substr(0, 19).replace('T', ' ').replace(/-/g, '/');
 }
 
-function WebSocketConnect(uid,username) {
+function WebSocketConnect(uid,username,room_id) {
 	if ("WebSocket" in window) {
 		console.log("您的浏览器支持 WebSocket!");
 		// 打开一个 web socket
@@ -28,6 +28,7 @@ function WebSocketConnect(uid,username) {
 			"status": 1,
 			"data": {
 				"uid": uid,
+				"room_id": room_id,
 				"username": username,
 			}
 		})
@@ -222,6 +223,7 @@ $(document).ready(function(){
 					"uid": parseInt($('.room').attr('data-uid')),
 					"username": $('.room').attr('data-username'),
 					"avatar_id": $('.room').attr('data-avatar_id'),
+					"room_id": $('.room').attr('data-room_id'),
 					"image_url": res.data.url,
 					"content": str
 				}
@@ -264,6 +266,7 @@ $(document).ready(function(){
 					"uid": parseInt($('.room').attr('data-uid')),
 					"username": $('.room').attr('data-username'),
 					"avatar_id": $('.room').attr('data-avatar_id'),
+					"room_id": $('.room').attr('data-room_id'),
 					"content": str
 				}
 			})

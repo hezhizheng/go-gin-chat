@@ -38,12 +38,14 @@ func Home(c *gin.Context) {
 }
 
 func Room(c *gin.Context) {
-	userInfo := user_service.GetUserInfo(c)
+	roomId := c.Param("room_id")
 
+	userInfo := user_service.GetUserInfo(c)
 	msgList := message_service.GetLimitMsg()
 
 	c.HTML(http.StatusOK, "room.html", gin.H{
 		"user_info": userInfo,
 		"msg_list":msgList,
+		"room_id":roomId,
 	})
 }

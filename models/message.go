@@ -2,6 +2,7 @@ package models
 
 import (
 	"gorm.io/gorm"
+	"sort"
 	"time"
 )
 
@@ -34,9 +35,13 @@ func GetLimitMsg() []map[string]interface{}  {
 	ChatDB.Model(&Message{}).
 		Select("messages.*, users.username ,users.avatar_id").
 		Joins("INNER Join users on users.id = messages.user_id").
-		Order("id asc").
+		Order("id desc").
 		Limit(100).
 		Scan(&results)
+
+	sort.Slice(results,func(i, j int) bool {
+		return results[i]["id"].(uint32) < results[j]["id"].(uint32)
+	})
 
 	return results
 }

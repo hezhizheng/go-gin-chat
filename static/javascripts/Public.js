@@ -21,6 +21,12 @@ function _time(time = +new Date()) {
 function WebSocketConnect(uid,username,room_id) {
 	if ("WebSocket" in window) {
 		console.log("您的浏览器支持 WebSocket!");
+
+		if ( uid <= 0 )
+		{
+			alert('参数错误，请刷新页面重试');return false;
+		}
+
 		// 打开一个 web socket
 		// let ws = new WebSocket("ws://127.0.0.1:8322/ws");
 
@@ -110,32 +116,6 @@ function WebSocketConnect(uid,username,room_id) {
 }
 
 $(document).ready(function(){
-
-	// -------------------------登录页面---------------------------------------------------
-
-	// 登录按钮
-
-	$('#login').click(function (event) {
-
-		let userName = $('.login input[type=text]').val(); // 用户昵称
-		let pwd = $('.login input[type=password]').val(); // 用户昵称
-
-		let avatar_id = $('.user_portrait img').attr('portrait_id'); // 用户头像id
-
-		$.post("/login", {
-			username: userName,
-			password: pwd,
-			avatar_id: avatar_id
-		}, function (res) {
-			if (res.code != 0) {
-				alert(res.msg);
-				return false;
-			}
-			window.location.assign("/room");
-			//window.location.href = '/room'; // 页面跳转
-		});
-	});
-
 // ------------------------选择聊天室页面-----------------------------------------------
 
 	// 用户信息提交
@@ -248,9 +228,11 @@ $(document).ready(function(){
 
 	// 发送消息
 	
-	$('.text input').focus();
+	//$('.text input').focus();
+	$("#emojionearea2")[0].emojioneArea.setFocus()
 	$('#subxx').click(function(event) {
-		var str = $('.text input').val(); // 获取聊天内容
+		//var str = $('.text input').val(); // 获取聊天内容
+		var str = $("#emojionearea2")[0].emojioneArea.getText() // 获取聊天内容
 		str = str.replace(/\</g,'&lt;');
 		str = str.replace(/\>/g,'&gt;');
 		str = str.replace(/\n/g,'<br/>');
@@ -273,17 +255,15 @@ $(document).ready(function(){
 
 			ws.send(send_data);
 
-			// console.log("send",send_data);
-
-
 			// 滚动条滚到最下面
 			$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
 				scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
 			}, 500);
 
 		}
-		$('.text input').val(''); // 清空输入框
-		$('.text input').focus(); // 输入框获取焦点
+
+		$("#emojionearea2")[0].emojioneArea.setText("")
+		$("#emojionearea2")[0].emojioneArea.setFocus()
 	});
 
 

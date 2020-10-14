@@ -8,9 +8,7 @@
     <link rel="stylesheet" href="/static/stylesheets/style.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
     <script type="text/javascript" src="/static/javascripts/jquery-1.11.2.min.js"></script>
-    <script type="text/javascript" src="/static/javascripts/websocket-heartbeat.js"></script>
     <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
-    <script type="text/javascript" src="/static/javascripts/Public.js?t=20201013102829"></script>
 </head>
 <body class="login">
 <div class="scrollbar-macosx">
@@ -52,6 +50,28 @@
 </div>
 </body>
 <script>
+
+    $(document).ready(function(){
+        $('#login').click(function (event) {
+
+            let userName = $('.login input[type=text]').val(); // 用户昵称
+            let pwd = $('.login input[type=password]').val(); // 用户昵称
+
+            let avatar_id = $('.user_portrait img').attr('portrait_id'); // 用户头像id
+
+            $.post("/login", {
+                username: userName,
+                password: pwd,
+                avatar_id: avatar_id
+            }, function (res) {
+                if (res.code != 0) {
+                    alert(res.msg);
+                    return false;
+                }
+                window.location.assign("/room");
+            });
+        });
+    })
 
     // 回车键登录
     $(document).keyup(function(event){

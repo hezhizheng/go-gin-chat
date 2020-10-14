@@ -21,6 +21,8 @@ type wsClients struct {
 	uid float64
 
 	username string
+
+	roomId string
 }
 
 // 存放客户端连接
@@ -45,6 +47,8 @@ var (
 	serveMsg = msg{}
 
 	mutex  = sync.Mutex{}
+
+	rooms = [100][]wsClients{}
 )
 
 // 定义消息类型
@@ -99,56 +103,52 @@ func mainProcess(c *websocket.Conn) {
 			serveMsgStr = formatServeMsgStr(msgTypeSend)
 		}
 
-		//log.Println("wsc.clients", wsc.clients)
 		//log.Println("serveMsgStr", string(serveMsgStr))
 		notify(c, string(serveMsgStr))
 	}
 }
 
+
+
 // 处理建立连接的用户
 func handleConnClients(c *websocket.Conn) {
-	if len(wsc.clients) == 0 {
-		wsc.clients = append(wsc.clients, wsClients{
-			conn:       c,
-			RemoteAddr: c.RemoteAddr().String(),
-			uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
-			username: clientMsg.Data.(map[string]interface{})["username"].(string),
-		})
-	} else {
-		for cKey, cl := range wsc.clients {
-			// 如果有先删除再追加
-			if cl.uid == clientMsg.Data.(map[string]interface{})["uid"].(float64) {
-				mutex.Lock()
-				// 通知当前用户下线
-				cl.conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
-				wsc.clients = append(wsc.clients[:cKey], wsc.clients[cKey+1:]...)
-				mutex.Unlock()
-			}
-		}
+	roomId, roomIdInt := getRoomId()
 
-		mutex.Lock()
-		wsc.clients = append(wsc.clients, wsClients{
-			conn:       c,
-			RemoteAddr: c.RemoteAddr().String(),
-			uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
-			username: clientMsg.Data.(map[string]interface{})["username"].(string),
-		})
-		mutex.Unlock()
+	for cKey, wcl := range rooms[roomIdInt] {
+		if wcl.uid == clientMsg.Data.(map[string]interface{})["uid"].(float64) {
+			mutex.Lock()
+			// 通知当前用户下线
+			wcl.conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
+			rooms[roomIdInt] = append(rooms[roomIdInt][:cKey], rooms[roomIdInt][cKey+1:]...)
+			mutex.Unlock()
+		}
 	}
+
+	mutex.Lock()
+	rooms[roomIdInt] = append(rooms[roomIdInt], wsClients{
+		conn:       c,
+		RemoteAddr: c.RemoteAddr().String(),
+		uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
+		username:   clientMsg.Data.(map[string]interface{})["username"].(string),
+		roomId:     roomId,
+	})
+	mutex.Unlock()
 }
 
 // 统一消息发放
 func notify(conn *websocket.Conn, msg string) {
-	for _, con := range wsc.clients {
+	_, roomIdInt := getRoomId()
+	for _, con := range rooms[roomIdInt] {
 		if con.RemoteAddr != conn.RemoteAddr().String() {
 			con.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 		}
 	}
 }
 
-// 离线通知处理
+// 离线通知
 func disconnect(conn *websocket.Conn) {
-	for index, con := range wsc.clients {
+	_, roomIdInt := getRoomId()
+	for index, con := range rooms[roomIdInt] {
 		if con.RemoteAddr == conn.RemoteAddr().String() {
 			data := map[string]interface{}{
 				"username": con.username,
@@ -165,12 +165,13 @@ func disconnect(conn *websocket.Conn) {
 			disMsg := string(serveMsgStr)
 
 			mutex.Lock()
-			wsc.clients = append(wsc.clients[:index], wsc.clients[index+1:]...)
+			rooms[roomIdInt] = append(rooms[roomIdInt][:index], rooms[roomIdInt][index+1:]...)
 			mutex.Unlock()
 			notify(conn, disMsg)
 		}
 	}
 }
+
 
 // 格式化传送给客户端的消息数据
 func formatServeMsgStr(status int) []byte {
@@ -178,6 +179,7 @@ func formatServeMsgStr(status int) []byte {
 	data := map[string]interface{}{
 		"username": clientMsg.Data.(map[string]interface{})["username"].(string),
 		"uid":      clientMsg.Data.(map[string]interface{})["uid"].(float64),
+		"room_id":      clientMsg.Data.(map[string]interface{})["room_id"].(string),
 		"time":     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
 	}
 
@@ -195,11 +197,13 @@ func formatServeMsgStr(status int) []byte {
 			models.SaveContent(map[string]interface{}{
 				"user_id": intUid,
 				"content": data["content"],
+				"room_id": data["room_id"],
 				"image_url": clientMsg.Data.(map[string]interface{})["image_url"].(string),
 			})
 		}else{
 			models.SaveContent(map[string]interface{}{
 				"user_id": intUid,
+				"room_id": data["room_id"],
 				"content": data["content"],
 			})
 		}
@@ -215,6 +219,13 @@ func formatServeMsgStr(status int) []byte {
 	return serveMsgStr
 }
 
+func getRoomId() (string, int) {
+	roomId := clientMsg.Data.(map[string]interface{})["room_id"].(string)
+
+	roomIdInt, _ := strconv.Atoi(roomId)
+	return roomId, roomIdInt
+}
+
 // 对外方法
 //  获取在线用户列表，暂不实现
 func OnLineUserList() {
@@ -227,4 +238,8 @@ func OnLineUserList() {
 
 func GetOnlineUserCount() int {
 	return len(wsc.clients)
+}
+
+func GetOnlineRoomUserCount(roomId int) int {
+	return len(rooms[roomId])
 }

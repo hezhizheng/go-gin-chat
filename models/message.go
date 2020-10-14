@@ -3,6 +3,7 @@ package models
 import (
 	"gorm.io/gorm"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -10,6 +11,7 @@ type Message struct {
 	gorm.Model
 	ID        uint
 	UserId    int
+	RoomId    int
 	Content   string
 	ImageUrl   string
 	CreatedAt time.Time
@@ -21,6 +23,12 @@ func SaveContent(value interface{}) Message {
 	m.UserId = value.(map[string]interface{})["user_id"].(int)
 	m.Content = value.(map[string]interface{})["content"].(string)
 
+	roomIdStr := value.(map[string]interface{})["room_id"].(string)
+
+	roomIdInt, _ := strconv.Atoi(roomIdStr)
+
+	m.RoomId = roomIdInt
+
 	if _, ok := value.(map[string]interface{})["image_url"]; ok {
 		m.ImageUrl = value.(map[string]interface{})["image_url"].(string)
 	}
@@ -29,12 +37,13 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg() []map[string]interface{}  {
+func GetLimitMsg(roomId string ) []map[string]interface{}  {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
 		Select("messages.*, users.username ,users.avatar_id").
 		Joins("INNER Join users on users.id = messages.user_id").
+		Where("messages.room_id = " + roomId).
 		Order("id desc").
 		Limit(100).
 		Scan(&results)

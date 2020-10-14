@@ -52,6 +52,21 @@
 <script>
 
     $(document).ready(function(){
+
+        $('.select_portrait img').hover(function() {
+            var portrait_id = $(this).attr('portrait_id');
+            $('.user_portrait img').attr('src', '/static/images/user/' + portrait_id + '.png');
+        }, function() {
+            var t_id = $('.user_portrait img').attr('portrait_id');
+            $('.user_portrait img').attr('src', '/static/images/user/' + t_id + '.png');
+        });
+        $('.select_portrait img').click(function(event) {
+            var portrait_id = $(this).attr('portrait_id');
+            $('.user_portrait img').attr('portrait_id', portrait_id);
+            $('.select_portrait img').removeClass('t');
+            $(this).addClass('t');
+        });
+
         $('#login').click(function (event) {
 
             let userName = $('.login input[type=text]').val(); // 用户昵称

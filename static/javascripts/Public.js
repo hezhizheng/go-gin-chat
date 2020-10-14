@@ -18,7 +18,7 @@ function _time(time = +new Date()) {
 	//return date.toJSON().substr(0, 19).replace('T', ' ').replace(/-/g, '/');
 }
 
-function WebSocketConnect(uid,username,room_id) {
+function WebSocketConnect(uid,username,room_id,avatar_id) {
 	if ("WebSocket" in window) {
 		console.log("您的浏览器支持 WebSocket!");
 
@@ -35,6 +35,7 @@ function WebSocketConnect(uid,username,room_id) {
 			"data": {
 				"uid": uid,
 				"room_id": room_id,
+				"avatar_id": avatar_id,
 				"username": username,
 			}
 		})
@@ -94,9 +95,24 @@ function WebSocketConnect(uid,username,room_id) {
 					ws.close() // 主动close掉
 					console.log("client 连接已关闭...");
 					break;
+				case 4:
+					$('.popover-title').html('在线用户 '+ received_msg.data.count +' 人')
+
+					$.each(received_msg.data.list,function (index, value) {
+						$('.ul-user-list').html($('.ul-user-list').html() +
+							'<li ><img src="/static/images/user/' +
+							value.avatar_id +
+							'.png" alt=""><b>' + " " +
+							value.username +
+							'</b>' +
+							'</li>'
+						)
+					})
+					// console.log("在线用户",received_msg);
+					break;
 				default:
 			}
-			console.log("数据已接收...", received_msg);
+			// console.log("数据已接收...", received_msg);
 		};
 
 		ws.onclose = function () {
@@ -176,6 +192,21 @@ $(document).ready(function(){
 
 
 // --------------------聊天室内页面----------------------------------------------------
+
+	// 获取在线用户列表
+	$('.a-user-list').click(function () {
+		$('.ul-user-list').html('')
+		let send_data = JSON.stringify({
+			"status": 4,
+			"data": {
+				"uid": parseInt($('.room').attr('data-uid')),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": $('.room').attr('data-room_id'),
+			}
+		})
+		ws.send(send_data);
+	})
 
 	// 发送图片
 
@@ -350,7 +381,7 @@ $(document).ready(function(){
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="aaa">' + message  +'</div></li>');
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
 		}
 	}
 	$('.text input').keypress(function(e) { 

@@ -28,89 +28,22 @@
         </div>
 
         <ul class="topnavlist">
-{{/*            <li class="userlist">*/}}
-{{/*                <a><span class="glyphicon glyphicon-th-list"></span>用户列表</a>*/}}
-{{/*                <div class="popover fade bottom in">*/}}
-{{/*                    <div class="arrow"></div>*/}}
-{{/*                    <h3 class="popover-title">在线用户18人</h3>*/}}
-{{/*                    <div class="popover-content scrollbar-macosx">*/}}
-{{/*                        <ul>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                            <li>*/}}
-{{/*                                <img src="/static/images/user/12.png" alt="portrait_1">*/}}
-{{/*                                <b>美国队长</b>*/}}
-{{/*                            </li>*/}}
-{{/*                        </ul>*/}}
-{{/*                    </div>*/}}
-{{/*                </div>*/}}
-{{/*            </li>*/}}
+            <li class="userlist">
+                <a class="a-user-list"><span class="glyphicon glyphicon-th-list"></span>用户列表</a>
+                <div class="popover fade bottom in">
+                    <div class="arrow"></div>
+                    <h3 class="popover-title">在线用户18人</h3>
+                    <div class="popover-content scrollbar-macosx">
+                        <ul class="ul-user-list">
+                            <li>
+                                <img src="/static/images/user/12.png" alt="portrait_1">
+                                <b>美国队长</b>
+                            </li>
+
+                        </ul>
+                    </div>
+                </div>
+            </li>
             <li><a class="_logout" href="javascript:;"> 退出登录 </a></li>
         </ul>
         <div class="clapboard hidden"></div>
@@ -190,7 +123,7 @@
 
     $(document).ready(function () {
         // WebSocketConnect
-        WebSocketConnect({{ .user_info.uid }},{{ .user_info.username }},{{ .room_id }})
+        WebSocketConnect({{ .user_info.uid }},{{ .user_info.username }},{{ .room_id }} ,{{ .user_info.avatar_id }})
 
         // 滚动到底部
         $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({

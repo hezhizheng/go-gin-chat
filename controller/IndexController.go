@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"go-gin-chat/services/helper"
 	"go-gin-chat/services/message_service"
 	"go-gin-chat/services/user_service"
 	"go-gin-chat/ws"
@@ -50,6 +51,13 @@ func Home(c *gin.Context) {
 
 func Room(c *gin.Context) {
 	roomId := c.Param("room_id")
+
+	rooms := []string{"1","2","3","4","5","6"}
+
+	if !helper.InArray(roomId,rooms) {
+		c.Redirect(http.StatusFound,"/room/1")
+		return
+	}
 
 	userInfo := user_service.GetUserInfo(c)
 	msgList := message_service.GetLimitMsg(roomId)

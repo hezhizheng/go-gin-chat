@@ -10,7 +10,8 @@ import (
 )
 
 func InitRoute() *gin.Engine {
-	router := gin.Default()
+	//router := gin.Default()
+	router := gin.New()
 
 	fs := assetfs.AssetFS{
 		Asset:     bindata.Asset,
@@ -30,8 +31,6 @@ func InitRoute() *gin.Engine {
 
 		sr.POST("/login", controller.Login)
 		sr.GET("/logout", controller.Logout)
-
-
 
 		authorized := sr.Group("/", session.AuthSessionMiddle())
 		{

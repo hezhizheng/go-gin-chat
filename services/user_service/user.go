@@ -1,10 +1,9 @@
 package user_service
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"github.com/gin-gonic/gin"
 	"go-gin-chat/models"
+	"go-gin-chat/services/helper"
 	"go-gin-chat/services/session"
 	"go-gin-chat/services/validator"
 	"net/http"
@@ -30,7 +29,7 @@ func Login(c *gin.Context) {
 
 	user := models.FindUserByField("username", username)
 	userInfo := user
-	md5Pwd := md5Encrypt(pwd)
+	md5Pwd := helper.Md5Encrypt(pwd)
 
 	if userInfo.ID > 0 {
 		// json 用户存在
@@ -67,12 +66,6 @@ func Login(c *gin.Context) {
 		})
 		return
 	}
-}
-
-func md5Encrypt(s string) string {
-	m := md5.New()
-	m.Write([]byte (s))
-	return hex.EncodeToString(m.Sum(nil))
 }
 
 func GetUserInfo(c *gin.Context) map[string]interface{} {

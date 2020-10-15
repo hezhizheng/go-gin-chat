@@ -100,7 +100,7 @@ function WebSocketConnect(uid,username,room_id,avatar_id) {
 
 					$.each(received_msg.data.list,function (index, value) {
 						$('.ul-user-list').html($('.ul-user-list').html() +
-							'<li ><img src="/static/images/user/' +
+							'<li  class="li-user-item" data-uid='+ value.uid +' data-username='+ value.username +' ><img src="/static/images/user/' +
 							value.avatar_id +
 							'.png" alt=""><b>' + " " +
 							value.username +

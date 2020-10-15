@@ -3,12 +3,14 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-	<title>Document</title>
-	<link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+	<title>go-gin-chat 聊天室</title>
+	<link rel="stylesheet" href="//cdn.staticfile.org/twitter-bootstrap/3.3.5/css/bootstrap.min.css">
 	<link rel="stylesheet" href="/static/rolling/css/rolling.css">
 	<link rel="stylesheet" href="/static/stylesheets/style.css">
-	<script type="text/javascript" src="/static/javascripts/jquery-1.11.2.min.js"></script>
-	<script type="text/javascript" src="/static/bootstrap/js/bootstrap.min.js"></script>
+	<link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
+
+	<script type="text/javascript" src="//cdn.staticfile.org/jquery/1.11.2/jquery.min.js"></script>
+	<script type="text/javascript" src="//cdn.staticfile.org/twitter-bootstrap/3.3.5/js/bootstrap.min.js"></script>
 	<script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
 </head>
 <body class="rooms">
@@ -22,7 +24,7 @@
 			</div>
 			<ul class="topnavlist">
 				<li class="userinfo">
-					<a><span class="glyphicon glyphicon-user"></span><b>{{ .user_info.username }} </b></a>
+					<a><span class="glyphicon glyphicon-user"></span><b> {{ .user_info.username }} </b></a>
 				</li>
 
 			</ul>

@@ -4,6 +4,8 @@
 
 > [在线demo](http://go-gin-chat.hzz.cool) (PS: 请尽量使用Chrome游览器)
 
+> [github地址](https://github.com/hezhizheng/go-gin-chat)
+
 ## 结构
 ```
 .

@@ -68,3 +68,16 @@ func Room(c *gin.Context) {
 		"room_id":roomId,
 	})
 }
+
+func PrivateChat(c *gin.Context) {
+	roomId := "1"
+
+	userInfo := user_service.GetUserInfo(c)
+	msgList := message_service.GetLimitMsg(roomId)
+
+	c.HTML(http.StatusOK, "private_chat.html", gin.H{
+		"user_info": userInfo,
+		"msg_list":msgList,
+		"room_id":roomId,
+	})
+}

@@ -37,6 +37,7 @@ func InitRoute() *gin.Engine {
 			authorized.GET("/ws", ws.Run)
 			authorized.GET("/home", controller.Home)
 			authorized.GET("/room/:room_id", controller.Room)
+			authorized.GET("/private-chat", controller.PrivateChat)
 			authorized.POST("/img-kr-upload", controller.ImgKrUpload)
 		}
 

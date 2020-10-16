@@ -18,11 +18,11 @@ function _time(time = +new Date()) {
 	//return date.toJSON().substr(0, 19).replace('T', ' ').replace(/-/g, '/');
 }
 
-function WebSocketConnect(uid,username,room_id,avatar_id) {
+function WebSocketConnect(userInfo,toUserInfo = null) {
 	if ("WebSocket" in window) {
 		console.log("您的浏览器支持 WebSocket!");
 
-		if ( uid <= 0 )
+		if ( userInfo.uid <= 0 )
 		{
 			alert('参数错误，请刷新页面重试');return false;
 		}
@@ -31,19 +31,39 @@ function WebSocketConnect(uid,username,room_id,avatar_id) {
 		// let ws = new WebSocket("ws://127.0.0.1:8322/ws");
 
 		let send_data = JSON.stringify({
-			"status": 1,
+			"status": toUserInfo ? 5 : 1,
 			"data": {
-				"uid": uid,
-				"room_id": room_id,
-				"avatar_id": avatar_id,
-				"username": username,
+				"uid": userInfo.uid,
+				"room_id": userInfo.room_id,
+				"avatar_id": userInfo.avatar_id,
+				"username": userInfo.username,
+				"to_user": toUserInfo
 			}
 		})
 
 		ws.onopen = function () {
 			ws.send(send_data);
-			console.log("发送数据", send_data)
+			console.log("send_data 发送数据", send_data)
 		};
+
+		// if ( toUserInfo )
+		// {
+		// 	let to_user_send_data = JSON.stringify({
+		// 		"status": toUserInfo ? 5 : 1,
+		// 		"data": {
+		// 			"uid": toUserInfo.uid,
+		// 			"room_id": toUserInfo.room_id,
+		// 			"avatar_id": toUserInfo.avatar_id,
+		// 			"username": toUserInfo.username,
+		// 			"to_user": toUserInfo
+		// 		}
+		// 	})
+		// 	ws.onopen = function () {
+		// 		ws.send(to_user_send_data);
+		// 		console.log("to_user_send_data 发送数据", to_user_send_data)
+		// 	};
+		// }
+
 
 		let chat_info = $('.main .chat_info')
 
@@ -77,7 +97,7 @@ function WebSocketConnect(uid,username,room_id,avatar_id) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != uid )
+					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
 					{
 						chat_info.html(chat_info.html() +
 							'<li class="left"><img src="/static/images/user/' +
@@ -99,20 +119,52 @@ function WebSocketConnect(uid,username,room_id,avatar_id) {
 					$('.popover-title').html('在线用户 '+ received_msg.data.count +' 人')
 
 					$.each(received_msg.data.list,function (index, value) {
-						$('.ul-user-list').html($('.ul-user-list').html() +
-							'<li  class="li-user-item" data-uid='+ value.uid +' data-username='+ value.username +' ><img src="/static/images/user/' +
-							value.avatar_id +
-							'.png" alt=""><b>' + " " +
-							value.username +
-							'</b>' +
-							'</li>'
-						)
+
+						if ( received_msg.data.uid == value.uid )
+						{
+							// 禁止点击
+							$('.ul-user-list').html($('.ul-user-list').html() +
+								'<li  style="pointer-events: none;" class="li-user-item" data-uid='+ value.uid +' data-username='+ value.username +' data-room_id='+ value.room_id +' data-avatar_id='+ value.avatar_id +'  ><img src="/static/images/user/' +
+								value.avatar_id +
+								'.png" alt=""><b>' + " " +
+								value.username +
+								'</b>' +
+								'</li>'
+							)
+						}else{
+							$('.ul-user-list').html($('.ul-user-list').html() +
+								'<li  class="li-user-item" data-uid='+ value.uid +' data-username='+ value.username +' data-room_id='+ value.room_id +' data-avatar_id='+ value.avatar_id +'  ><img src="/static/images/user/' +
+								value.avatar_id +
+								'.png" alt=""><b>' + " " +
+								value.username +
+								'</b>' +
+								'</li>'
+							)
+						}
+
 					})
-					// console.log("在线用户",received_msg);
+					console.log("在线用户",received_msg);
+					break;
+
+				case 5:
+					console.log(received_msg.data.uid,userInfo.uid,isPrivateChat())
+					if ( received_msg.data.uid != userInfo.uid && isPrivateChat())
+					{
+						chat_info.html(chat_info.html() +
+							'<li class="left"><img src="/static/images/user/' +
+							received_msg.data.avatar_id +
+							'.png" alt=""><b>' +
+							received_msg.data.username +
+							'</b><i>' +
+							time +
+							'</i><div class="aaa">' +
+							received_msg.data.content +
+							'</div></li>');
+					}
 					break;
 				default:
 			}
-			// console.log("数据已接收...", received_msg);
+			console.log("数据已接收...", received_msg);
 		};
 
 		ws.onclose = function () {
@@ -194,7 +246,7 @@ $(document).ready(function(){
 // --------------------聊天室内页面----------------------------------------------------
 
 	// 获取在线用户列表
-	$('.a-user-list').click(function () {
+	$(document).on('click', '.a-user-list', function(e) {
 		$('.ul-user-list').html('')
 		let send_data = JSON.stringify({
 			"status": 4,
@@ -207,6 +259,19 @@ $(document).ready(function(){
 		})
 		ws.send(send_data);
 	})
+	// $('.a-user-list').click(function () {
+	// 	$('.ul-user-list').html('')
+	// 	let send_data = JSON.stringify({
+	// 		"status": 4,
+	// 		"data": {
+	// 			"uid": parseInt($('.room').attr('data-uid')),
+	// 			"username": $('.room').attr('data-username'),
+	// 			"avatar_id": $('.room').attr('data-avatar_id'),
+	// 			"room_id": $('.room').attr('data-room_id'),
+	// 		}
+	// 	})
+	// 	ws.send(send_data);
+	// })
 
 	// 发送图片
 
@@ -270,17 +335,26 @@ $(document).ready(function(){
 		str = str.replace(/\[em_([0-9]*)\]/g,'<img src="images/face/$1.gif" alt="" />');
 		if(str!='') {
 
+			let to_uid = "0"
+			let status = 3
+			if (isPrivateChat()) {
+				// 私聊
+				to_uid = getQueryVariable("uid")
+				status = 5
+			}
+
 
 			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
 
 			let send_data = JSON.stringify({
-				"status": 3,
+				"status": status,
 				"data": {
 					"uid": parseInt($('.room').attr('data-uid')),
 					"username": $('.room').attr('data-username'),
 					"avatar_id": $('.room').attr('data-avatar_id'),
 					"room_id": $('.room').attr('data-room_id'),
-					"content": str
+					"content": str,
+					"to_uid" : to_uid,
 				}
 			})
 
@@ -390,3 +464,21 @@ $(document).ready(function(){
 		}
 	});
 });
+
+function getQueryVariable(variable)
+{
+	var query = window.location.search.substring(1);
+	var vars = query.split("&");
+	for (var i=0;i<vars.length;i++) {
+		var pair = vars[i].split("=");
+		if(pair[0] == variable){return pair[1];}
+	}
+	return(false);
+}
+
+function isPrivateChat()
+{
+	return window.location.href.search('private-chat') > 0
+}
+
+

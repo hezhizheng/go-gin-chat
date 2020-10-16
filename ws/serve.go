@@ -25,6 +25,8 @@ type wsClients struct {
 	RoomId string `json:"room_id"`
 
 	AvatarId string `json:"avatar_id"`
+
+	ToUser interface{} `json:"to_user"`
 }
 
 // client & serve 的消息体
@@ -42,6 +44,8 @@ var (
 	mutex = sync.Mutex{}
 
 	rooms = [roomCount + 1][]wsClients{}
+
+	privateChat = []wsClients{}
 )
 
 // 定义消息类型
@@ -81,7 +85,7 @@ func mainProcess(c *websocket.Conn) {
 			return
 			//mainProcess(c)
 		}
-		//log.Println("来自客户端的消息", clientMsg)
+		log.Println("来自客户端的消息", clientMsg)
 
 		if err != nil { // 离线通知
 			log.Println("ReadMessage error1", err)
@@ -95,6 +99,15 @@ func mainProcess(c *websocket.Conn) {
 			serveMsgStr = formatServeMsgStr(msgTypeOnline)
 		}
 
+		if clientMsg.Status == 5 {
+			// 处理私聊
+			serveMsgStr = formatServeMsgStr(5)
+			toC := findToUserCoonClient()
+			if toC != nil {
+				toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+			}
+		}
+
 		if clientMsg.Status == msgTypeSend { // 消息发送
 			serveMsgStr = formatServeMsgStr(msgTypeSend)
 		}
@@ -106,8 +119,49 @@ func mainProcess(c *websocket.Conn) {
 		}
 
 		//log.Println("serveMsgStr", string(serveMsgStr))
-		notify(c, string(serveMsgStr))
+		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
+			notify(c, string(serveMsgStr))
+		}
 	}
+}
+
+func handlePrivateConnClients(c *websocket.Conn) {
+
+	mutex.Lock()
+	// 通过参数找出 toUser
+
+
+	privateChat = append(privateChat, wsClients{
+		Conn:       c,
+		RemoteAddr: c.RemoteAddr().String(),
+		Uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
+		Username:   clientMsg.Data.(map[string]interface{})["username"].(string),
+		AvatarId:   clientMsg.Data.(map[string]interface{})["avatar_id"].(string),
+		ToUser: wsClients{
+			Conn:       c,
+			RemoteAddr: c.RemoteAddr().String(),
+			Uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
+			Username:   clientMsg.Data.(map[string]interface{})["username"].(string),
+			AvatarId:   clientMsg.Data.(map[string]interface{})["avatar_id"].(string),
+		},
+	})
+	mutex.Unlock()
+}
+
+//
+func findToUserCoonClient() interface{} {
+	_, roomIdInt := getRoomId()
+
+	toUserUid := clientMsg.Data.(map[string]interface{})["to_uid"].(string)
+
+	for _, c := range rooms[roomIdInt] {
+		stringUid := strconv.FormatFloat(c.Uid, 'f', -1, 64)
+		if stringUid == toUserUid {
+			return c
+		}
+	}
+
+	return nil
 }
 
 // 处理建立连接的用户
@@ -185,9 +239,12 @@ func formatServeMsgStr(status int) []byte {
 		"time":     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
 	}
 
-	if status == msgTypeSend {
+	if status == msgTypeSend || status == 5{
 		data["avatar_id"] = clientMsg.Data.(map[string]interface{})["avatar_id"].(string)
 		data["content"] = clientMsg.Data.(map[string]interface{})["content"].(string)
+
+		to_uidStr := clientMsg.Data.(map[string]interface{})["to_uid"].(string)
+		to_uid, _ := strconv.Atoi(to_uidStr)
 
 		// 保存消息
 		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
@@ -197,6 +254,7 @@ func formatServeMsgStr(status int) []byte {
 			// 存在图片
 			models.SaveContent(map[string]interface{}{
 				"user_id":   intUid,
+				"to_user_id": to_uid,
 				"content":   data["content"],
 				"room_id":   data["room_id"],
 				"image_url": clientMsg.Data.(map[string]interface{})["image_url"].(string),
@@ -204,6 +262,7 @@ func formatServeMsgStr(status int) []byte {
 		} else {
 			models.SaveContent(map[string]interface{}{
 				"user_id": intUid,
+				"to_user_id": to_uid,
 				"room_id": data["room_id"],
 				"content": data["content"],
 			})

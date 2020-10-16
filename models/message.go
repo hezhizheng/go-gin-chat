@@ -11,6 +11,7 @@ type Message struct {
 	gorm.Model
 	ID        uint
 	UserId    int
+	ToUserId    int
 	RoomId    int
 	Content   string
 	ImageUrl   string
@@ -21,6 +22,7 @@ type Message struct {
 func SaveContent(value interface{}) Message {
 	var m Message
 	m.UserId = value.(map[string]interface{})["user_id"].(int)
+	m.ToUserId = value.(map[string]interface{})["to_user_id"].(int)
 	m.Content = value.(map[string]interface{})["content"].(string)
 
 	roomIdStr := value.(map[string]interface{})["room_id"].(string)

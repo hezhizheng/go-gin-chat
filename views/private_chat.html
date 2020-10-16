@@ -24,34 +24,6 @@
       data-avatar_id="{{ .user_info.avatar_id }}" data-room_id="{{ .room_id }}">
 
 <div class="scrollbar-macosx">
-    <div class="header">
-        <div class="toptext">
-            <a href="/home">
-                <span class="glyphicon glyphicon-arrow-left"></span> 返回大厅
-            </a>
-        </div>
-
-        <ul class="topnavlist">
-            <li class="userlist">
-                <a class="a-user-list"><span class="glyphicon glyphicon-th-list"></span>用户列表</a>
-                <div class="popover fade bottom in">
-                    <div class="arrow"></div>
-                    <h3 class="popover-title">在线用户 1 人</h3>
-                    <div class="popover-content scrollbar-macosx">
-                        <ul class="ul-user-list">
-                            <li>
-                                <img src="/static/images/user/12.png" alt="portrait_1">
-                                <b>美国队长</b>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </li>
-
-            <li><a class="_logout" href="javascript:;"> 退出登录 </a></li>
-        </ul>
-        <div class="clapboard hidden"></div>
-    </div>
     <div class="main container">
         <div class="col-md-12">
             <ul class="chat_info">
@@ -126,21 +98,23 @@
 <script>
 
     $(document).ready(function () {
-        // WebSocketConnect
 
-        let userInfo = {
-            uid : {{ .user_info.uid }},
-            username : {{ .user_info.username }},
-            room_id : {{ .room_id }},
-            avatar_id : {{ .user_info.avatar_id }},
+        let toUserInfo =  {
+            uid : getQueryVariable('uid'),
+            username : getQueryVariable('username'),
+            room_id : getQueryVariable('room_id'),
+            avatar_id : getQueryVariable('avatar_id'),
         }
-        WebSocketConnect(userInfo)
+
+        //console.log("get toUserInfo",toUserInfo)
 
         // 滚动到底部
         $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
             scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
         }, 500);
     });
+
+
 </script>
 
 <script>
@@ -148,62 +122,7 @@
     $(document).on('click', '.li-user-item', function(e) {
         let uid = $(this).attr('data-uid')
         let username = $(this).attr('data-username')
-        let room_id = $(this).attr('data-room_id')
-        let avatar_id = $(this).attr('data-avatar_id')
-
-        let toUser = JSON.stringify({
-            "uid": uid,
-            "room_id": room_id,
-            "avatar_id": avatar_id,
-            "username": username,
-        })
-
-        let content = '/private-chat?uid='+uid+'&room_id='+room_id+'&avatar_id='+avatar_id+'&username='+username
-
-        layer.open({
-            type: 2,
-            title : '与 ' +username + ' 聊天中',
-            content: content,
-            area : ['100%', '100%'],
-            success: function(layero, index){
-
-                var body = layer.getChildFrame('body', index);
-                //var iframeWin = window[layero.find('iframe')[0]['name']]; //得到iframe页的窗口对象，执行iframe页的方法：
-
-                ws.onmessage = function (evt) {
-                    var received_msg = JSON.parse(evt.data)
-                    let time = _time(received_msg.data.time)
-                    if (received_msg.status == 5)
-                    {
-                        body.find('.main .chat_info').html(body.find('.main .chat_info').html() +
-                            '<li class="left"><img src="/static/images/user/' +
-                            received_msg.data.avatar_id +
-                            '.png" alt=""><b>' +
-                            received_msg.data.username +
-                            '</b><i>' +
-                            time +
-                            '</i><div class="aaa">' +
-                            received_msg.data.content +
-                            '</div></li>');
-                    }
-
-                    //console.log("private",received_msg)
-                }
-
-            },
-            // cancel: function(index, layero){
-            //     var index = parent.layer.getFrameIndex(window.name);
-            //     parent.layer.close(index);
-            //     layer.close(index)
-            //     // if(confirm('确定要关闭么')){ //只有当点击confirm框的确定时，该层才会关闭
-            //     //     layer.close(index)
-            //     //
-            //     // }
-            //     // return false;
-            // }
-        })
-
-        // console.log("send toUser",toUser,content)
+        console.log(uid,username)
     });
 
 </script>

@@ -186,21 +186,12 @@
                             received_msg.data.content +
                             '</div></li>');
                     }
-
-                    //console.log("private",received_msg)
                 }
 
             },
-            // cancel: function(index, layero){
-            //     var index = parent.layer.getFrameIndex(window.name);
-            //     parent.layer.close(index);
-            //     layer.close(index)
-            //     // if(confirm('确定要关闭么')){ //只有当点击confirm框的确定时，该层才会关闭
-            //     //     layer.close(index)
-            //     //
-            //     // }
-            //     // return false;
-            // }
+            cancel:function(){
+                parent.location.reload(); //TODO 暂时使用刷新解决，关闭iframe窗口 会触发一次 websocket 发送 接着直接关闭了连接
+            }
         })
 
         // console.log("send toUser",toUser,content)

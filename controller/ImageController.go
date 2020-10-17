@@ -5,7 +5,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"go-gin-chat/services/img_kr"
-	"log"
 	"net/http"
 	"os"
 )
@@ -35,7 +34,7 @@ func ImgKrUpload(c *gin.Context) {
 	//查了下，并没有什么办法可以获取到项目中文件的绝对路径，老老实实的再配置文件中定义好应用的应用路径吧！
 	krUpload := img_kr.Upload(filename)
 
-	log.Println(krUpload)
+	//log.Println(krUpload)
 
 	// 删除临时图片
 	os.Remove(filename)

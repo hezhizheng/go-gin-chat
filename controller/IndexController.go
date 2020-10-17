@@ -7,6 +7,7 @@ import (
 	"go-gin-chat/services/user_service"
 	"go-gin-chat/ws"
 	"net/http"
+	"strconv"
 )
 
 func Index(c *gin.Context) {
@@ -70,10 +71,15 @@ func Room(c *gin.Context) {
 }
 
 func PrivateChat(c *gin.Context) {
-	roomId := "1"
+
+	roomId := c.Query("room_id")
+	toUid := c.Query("uid")
 
 	userInfo := user_service.GetUserInfo(c)
-	msgList := message_service.GetLimitMsg(roomId)
+
+	uid := strconv.Itoa(int(userInfo["uid"].(uint)))
+
+	msgList := message_service.GetLimitPrivateMsg(uid,toUid)
 
 	c.HTML(http.StatusOK, "private_chat.html", gin.H{
 		"user_info": userInfo,

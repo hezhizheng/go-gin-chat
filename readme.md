@@ -52,6 +52,7 @@
 ## feature
 - 登录/注册(防止重复登录)
 - 群聊(支持文字、emoji、图片、多房间)
+- 私聊(消息提醒)
 - 历史消息查看(暂时仅支持最新100条)
 - 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js
 - go mod 包管理
@@ -142,13 +143,6 @@ gox -osarch="linux/amd64"
 ## todo
 - [x] 心跳机制
 - [x] 多频道聊天
-- [ ] 私聊
+- [x] 私聊
 - [x] 在线用户列表
 - [ ] https支持
-
-```
-[
-   [1=>[[2]]]
-   [2=>[1]]
-]
-```

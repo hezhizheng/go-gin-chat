@@ -143,28 +143,18 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						}
 
 					})
-					console.log("在线用户",received_msg);
+					//console.log("在线用户",received_msg);
 					break;
-
 				case 5:
-					console.log(received_msg.data.uid,userInfo.uid,isPrivateChat())
-					if ( received_msg.data.uid != userInfo.uid && isPrivateChat())
+					// 私聊通知
+					if (!isPrivateChat())
 					{
-						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
-							received_msg.data.avatar_id +
-							'.png" alt=""><b>' +
-							received_msg.data.username +
-							'</b><i>' +
-							time +
-							'</i><div class="aaa">' +
-							received_msg.data.content +
-							'</div></li>');
+						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
 					}
 					break;
 				default:
 			}
-			console.log("数据已接收...", received_msg);
+			//console.log("数据已接收...", received_msg);
 		};
 
 		ws.onclose = function () {
@@ -259,19 +249,6 @@ $(document).ready(function(){
 		})
 		ws.send(send_data);
 	})
-	// $('.a-user-list').click(function () {
-	// 	$('.ul-user-list').html('')
-	// 	let send_data = JSON.stringify({
-	// 		"status": 4,
-	// 		"data": {
-	// 			"uid": parseInt($('.room').attr('data-uid')),
-	// 			"username": $('.room').attr('data-username'),
-	// 			"avatar_id": $('.room').attr('data-avatar_id'),
-	// 			"room_id": $('.room').attr('data-room_id'),
-	// 		}
-	// 	})
-	// 	ws.send(send_data);
-	// })
 
 	// 发送图片
 
@@ -291,17 +268,26 @@ $(document).ready(function(){
 
 			var str = '<img src="' + res.data.url +'" />'
 
+			let to_uid = "0"
+			let status = 3
+			if (isPrivateChat()) {
+				// 私聊
+				to_uid = getQueryVariable("uid")
+				status = 5
+			}
+
 			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
 
 			let send_data = JSON.stringify({
-				"status": 3,
+				"status": status,
 				"data": {
 					"uid": parseInt($('.room').attr('data-uid')),
 					"username": $('.room').attr('data-username'),
 					"avatar_id": $('.room').attr('data-avatar_id'),
 					"room_id": $('.room').attr('data-room_id'),
 					"image_url": res.data.url,
-					"content": str
+					"content": str,
+					"to_uid" : to_uid,
 				}
 			})
 

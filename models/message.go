@@ -11,10 +11,10 @@ type Message struct {
 	gorm.Model
 	ID        uint
 	UserId    int
-	ToUserId    int
+	ToUserId  int
 	RoomId    int
 	Content   string
-	ImageUrl   string
+	ImageUrl  string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -39,7 +39,7 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string ) []map[string]interface{}  {
+func GetLimitMsg(roomId string) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -50,7 +50,29 @@ func GetLimitMsg(roomId string ) []map[string]interface{}  {
 		Limit(100).
 		Scan(&results)
 
-	sort.Slice(results,func(i, j int) bool {
+	sort.Slice(results, func(i, j int) bool {
+		return results[i]["id"].(uint32) < results[j]["id"].(uint32)
+	})
+
+	return results
+}
+
+func GetLimitPrivateMsg(uid, toUId string) []map[string]interface{} {
+
+	var results []map[string]interface{}
+	ChatDB.Model(&Message{}).
+		Select("messages.*, users.username ,users.avatar_id").
+		Joins("INNER Join users on users.id = messages.user_id").
+		Where("(" +
+			"(" + "messages.user_id = " + uid + " and messages.to_user_id=" + toUId + ")" +
+			" or " +
+			"(" + "messages.user_id = " + toUId + " and messages.to_user_id=" + uid + ")" +
+			")").
+		Order("id desc").
+		Limit(1000).
+		Scan(&results)
+
+	sort.Slice(results, func(i, j int) bool {
 		return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 	})
 

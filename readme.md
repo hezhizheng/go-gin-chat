@@ -2,42 +2,38 @@
 
 > 练手小项目，为熟悉Gin框架跟websocket使用 💛💛💛💛💛💛
 
-> [在线demo](http://go-gin-chat.hzz.cool) (PS: 请尽量使用Chrome游览器)
+> [在线demo](http://go-gin-chat.hzz.cool) (PS: 请尽量使用Chrome游览器，开启多个不同用户游览器即可体验效果)
 
 > [github地址](https://github.com/hezhizheng/go-gin-chat)
 
 ## 结构
 ```
 .
+|-- bindata
 |-- conf
 |-- controller
 |-- models
 |-- routes
 |-- services
-|   |               `-- img_kr
-|   |               `-- message_service
-|   |               `-- session
-|   |               `-- user_service
-|                   `-- validator
+|   |-- helper
+|   |-- img_kr
+|   |-- message_service
+|   |-- session
+|   |-- user_service
+|   `-- validator
 |-- sql
 |-- static
-|   |               `-- bootstrap
-|   |   |           `-- css
-|   |   |           `-- fonts
-|   |               `-- js
 |   |-- emoji
 |   |-- images
-|   |   |           `-- face
-|   |   |           `-- rooms
-|   |   |           `-- theme
-|   |               `-- user
+|   |   |-- rooms
+|   |   |-- theme
+|   |   `-- user
 |   |-- javascripts
 |   |-- rolling
-|   |   |           `-- css
-|   |               `-- js
+|   |   |-- css
+|   |   `-- js
 |   `-- stylesheets
 |-- tmp
-|-- tmp_images
 |-- views
 `-- ws
 
@@ -57,6 +53,7 @@
 - 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js
 - go mod 包管理
 - 静态资源嵌入，运行只依赖编译好的可执行文件与mysql
+- 支持 http/ws 、 https/wss
 
 ## database
 #### mysql

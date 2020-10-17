@@ -10,7 +10,8 @@ DROP TABLE IF EXISTS `messages`;
 CREATE TABLE `messages`  (
   `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL COMMENT '用户ID',
-  `room_id` int(11) NOT NULL,
+  `room_id` int(11) NOT NULL COMMENT '房间ID',
+  `to_user_id` int(11) NULL DEFAULT 0 COMMENT '私聊用户ID',
   `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '聊天内容',
   `image_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '图片URL',
   `created_at` datetime(0) NULL DEFAULT NULL,

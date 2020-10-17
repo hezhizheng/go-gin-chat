@@ -173,7 +173,8 @@
                 ws.onmessage = function (evt) {
                     var received_msg = JSON.parse(evt.data)
                     let time = _time(received_msg.data.time)
-                    if (received_msg.status == 5)
+                    // console.log("private ",received_msg)
+                    if (received_msg.status == 5 && received_msg.data.uid == uid)
                     {
                         body.find('.main .chat_info').html(body.find('.main .chat_info').html() +
                             '<li class="left"><img src="/static/images/user/' +
@@ -185,6 +186,8 @@
                             '</i><div class="aaa">' +
                             received_msg.data.content +
                             '</div></li>');
+                    }else if (received_msg.status == 5){
+                        layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
                     }
                 }
 

@@ -46,6 +46,7 @@ func GetLimitMsg(roomId string) []map[string]interface{} {
 		Select("messages.*, users.username ,users.avatar_id").
 		Joins("INNER Join users on users.id = messages.user_id").
 		Where("messages.room_id = " + roomId).
+		Where("messages.to_user_id = 0").
 		Order("id desc").
 		Limit(100).
 		Scan(&results)

@@ -6,6 +6,16 @@
 
 > [github地址](https://github.com/hezhizheng/go-gin-chat)
 
+## feature
+- 登录/注册(防止重复登录)
+- 群聊(支持文字、emoji、图片、多房间)
+- 私聊(消息提醒)
+- 历史消息查看(暂时仅支持最新100条)
+- 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js
+- go mod 包管理
+- 静态资源嵌入，运行只依赖编译好的可执行文件与mysql
+- 支持 http/ws 、 https/wss
+
 ## 结构
 ```
 .
@@ -45,19 +55,36 @@
 ![](https://static01.imgkr.com/temp/099bf697686445d79407962cdfb11e56.png)
 ![](https://static01.imgkr.com/temp/1e89fdd024de47fa862143fba246d632.png)
 
-## feature
-- 登录/注册(防止重复登录)
-- 群聊(支持文字、emoji、图片、多房间)
-- 私聊(消息提醒)
-- 历史消息查看(暂时仅支持最新100条)
-- 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js
-- go mod 包管理
-- 静态资源嵌入，运行只依赖编译好的可执行文件与mysql
-- 支持 http/ws 、 https/wss
-
 ## database
 #### mysql
-![](https://static01.imgkr.com/temp/a4b4520607da41f796f13c17a250e70e.png)
+```
+CREATE TABLE `messages`  (
+  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL COMMENT '用户ID',
+  `room_id` int(11) NOT NULL COMMENT '房间ID',
+  `to_user_id` int(11) NULL DEFAULT 0 COMMENT '私聊用户ID',
+  `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '聊天内容',
+  `image_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '图片URL',
+  `created_at` datetime(0) NULL DEFAULT NULL,
+  `updated_at` datetime(0) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(0),
+  `deleted_at` datetime(0) NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_user_id`(`user_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
+
+CREATE TABLE `users`  (
+  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '昵称',
+  `password` varchar(125) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '密码',
+  `avatar_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '1' COMMENT '头像ID',
+  `created_at` datetime(0) NULL DEFAULT NULL,
+  `updated_at` datetime(0) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(0),
+  `deleted_at` datetime(0) NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `username`(`username`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
+
+```
  
 ## Tools
 - [模板提供](https://github.com/zfowed/charooms-html) 

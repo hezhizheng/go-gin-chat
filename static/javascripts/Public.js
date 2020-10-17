@@ -1,6 +1,8 @@
 
+let ws_protocol = document.location.protocol == "https:" ? "wss" : "ws"
+
 const websocketHeartbeatJsOptions = {
-	url: "ws://"+ window.location.host +"/ws",
+	url: ws_protocol + "://"+ window.location.host +"/ws",
 	pingTimeout: 15000,
 	pongTimeout: 10000,
 	reconnectTimeout: 2000,

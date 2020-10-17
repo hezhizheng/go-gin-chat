@@ -88,7 +88,16 @@ go run main.go
 ```
 server {
     listen 80;
+    listen 443 ssl http2;
     server_name  go-gin-chat.hzz.cool;
+
+    #ssl on;  
+    ssl_certificate xxxpath\cert.pem;   
+    ssl_certificate_key xxxpath\key.pem;   
+    ssl_session_timeout  5m;  
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  
+    ssl_ciphers  ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;  
+    ssl_prefer_server_ciphers  on;
 
     location ~ .*\.(gif|jpg|png|css|js)(.*) {
                 proxy_pass http://127.0.0.1:8322;
@@ -145,4 +154,4 @@ gox -osarch="linux/amd64"
 - [x] 多频道聊天
 - [x] 私聊
 - [x] 在线用户列表
-- [ ] https支持
+- [x] https支持

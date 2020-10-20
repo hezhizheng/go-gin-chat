@@ -6,7 +6,7 @@ import (
 	"go-gin-chat/bindata"
 	"go-gin-chat/controller"
 	"go-gin-chat/services/session"
-	"go-gin-chat/ws"
+	ws "go-gin-chat/ws/go_ws"
 )
 
 func InitRoute() *gin.Engine {

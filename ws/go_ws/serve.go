@@ -52,6 +52,8 @@ var (
 	privateChat2 = make(chan wsClients)
 
 	clientMsg2 = make(chan []byte)
+
+	clientMsg3 = make(chan msg)
 )
 
 // 定义消息类型
@@ -72,193 +74,76 @@ func Run(gin *gin.Context) {
 
 	defer c.Close()
 
-	mainProcess(c)
+	go read(c)
+	go write(c)
+
+	select {}
+
 }
 
-func mainProcess2(c *websocket.Conn) {
+func read(c *websocket.Conn) {
 	for {
 		_, message, err := c.ReadMessage()
-		serveMsgStr := message
-
-		// 处理心跳响应 , heartbeat为与客户端约定的值
-		if string(serveMsgStr) == `heartbeat` {
-			handleMsg([]byte(`{"status":0,"data":"heartbeat ok"}`))
-			continue
-		}
-
-		json.Unmarshal(message, &clientMsg)
-		// log.Println("来自客户端的消息", clientMsg,c.RemoteAddr())
-		if clientMsg.Data == nil {
-			return
-		}
-
-		if err != nil { // 离线通知
-
-			data := map[string]interface{}{
-				"username": clientMsg.Data.(map[string]interface{})["username"].(string),
-				"uid":      clientMsg.Data.(map[string]interface{})["uid"].(string),
-				"time":     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
-			}
-
-			jsonStrServeMsg := msg{
-				Status: msgTypeOffline,
-				Data:   data,
-			}
-			serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
-
-			handleMsg(serveMsgStr)
-			return
-		}
-
-		if clientMsg.Status == msgTypeOnline { // 进入房间，建立连接
-			roomId, _ := getRoomId()
-			handleConnClients2(c, roomId)
-			serveMsgStr = formatServeMsgStr(msgTypeOnline)
-			handleMsg(serveMsgStr)
-		}
-
-		if clientMsg.Status == msgTypePrivateChat {
-			// 处理私聊
-			serveMsgStr = formatServeMsgStr(msgTypePrivateChat)
-			handleMsg(serveMsgStr)
-		}
-
-		if clientMsg.Status == msgTypeSend { // 消息发送
-			serveMsgStr = formatServeMsgStr(msgTypeSend)
-			handleMsg(serveMsgStr)
-		}
-
-		if clientMsg.Status == msgTypeGetOnlineUser {
-			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
-			handleMsg(serveMsgStr)
-		}
-	}
-}
-
-func handelGo() {
-	for {
-		select {
-		case in := <-rooms2:
-			// 处理房间各种连接
-
-		case _msg := <-clientMsg2:
-			s := string(_msg)
-		}
-	}
-}
-
-// 主程序，负责循环读取客户端消息跟消息的发送
-func mainProcess(c *websocket.Conn) {
-	for {
-		_, message, err := c.ReadMessage()
-		serveMsgStr := message
-
-		// 处理心跳响应 , heartbeat为与客户端约定的值
-		if string(serveMsgStr) == `heartbeat` {
-			c.WriteMessage(websocket.TextMessage, []byte(`{"status":0,"data":"heartbeat ok"}`))
-			continue
-		}
-
-		json.Unmarshal(message, &clientMsg)
-		// log.Println("来自客户端的消息", clientMsg,c.RemoteAddr())
-		if clientMsg.Data == nil {
-			return
-			//mainProcess(c)
-		}
-
+		log.Println("message", string(message))
 		if err != nil { // 离线通知
 			log.Println("ReadMessage error1", err)
-			disconnect(c)
-			c.Close()
-			return
+			break
 		}
 
-		if clientMsg.Status == msgTypeOnline { // 进入房间，建立连接
-			handleConnClients(c)
-			serveMsgStr = formatServeMsgStr(msgTypeOnline)
-		}
+		serveMsgStr := message
 
-		if clientMsg.Status == msgTypePrivateChat {
-			// 处理私聊
-			serveMsgStr = formatServeMsgStr(msgTypePrivateChat)
-			toC := findToUserCoonClient()
-			if toC != nil {
-				toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+		// 处理心跳响应 , heartbeat为与客户端约定的值
+		//log.Println(string(serveMsgStr))
+		if string(serveMsgStr) == `heartbeat` {
+
+			clientMsg3 <- msg{
+				Status: 0,
+				Data:   "heartbeat ok",
 			}
 		}
 
-		if clientMsg.Status == msgTypeSend { // 消息发送
-			serveMsgStr = formatServeMsgStr(msgTypeSend)
-		}
+		json.Unmarshal(message, &clientMsg)
+		// log.Println("来自客户端的消息", clientMsg,c.RemoteAddr())
+		if clientMsg.Data != nil {
+			if clientMsg.Status == msgTypeOnline { // 进入房间，建立连接
+				roomId, _ := getRoomId()
 
-		if clientMsg.Status == msgTypeGetOnlineUser {
-			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
-			c.WriteMessage(websocket.TextMessage, serveMsgStr)
-			continue
-		}
+				rooms2 <- wsClients{
+					Conn:       c,
+					RemoteAddr: c.RemoteAddr().String(),
+					Uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
+					Username:   clientMsg.Data.(map[string]interface{})["username"].(string),
+					RoomId:     roomId,
+					AvatarId:   clientMsg.Data.(map[string]interface{})["avatar_id"].(string),
+				}
+			}
 
-		//log.Println("serveMsgStr", string(serveMsgStr))
-		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
-			notify(c, string(serveMsgStr))
+			_, serveMsg := formatServeMsgStr(clientMsg.Status)
+			clientMsg3 <- serveMsg
 		}
 	}
 }
 
-// 获取私聊的用户连接
-func findToUserCoonClient() interface{} {
-	_, roomIdInt := getRoomId()
+func write(c *websocket.Conn) {
+	//r := make(chan wsClients)
+	for {
+		select {
+		case r := <-rooms2:
+			log.Println("room2", r, c.RemoteAddr())
+		case cl := <-clientMsg3:
 
-	toUserUid := clientMsg.Data.(map[string]interface{})["to_uid"].(string)
+			serveMsgStr, _ := json.Marshal(cl)
 
-	for _, c := range rooms[roomIdInt] {
-		stringUid := strconv.FormatFloat(c.Uid, 'f', -1, 64)
-		if stringUid == toUserUid {
-			return c
+			switch cl.Status {
+
+			case 0:
+				c.WriteMessage(websocket.TextMessage, serveMsgStr)
+
+			}
+
+			log.Println("cl", cl, c.RemoteAddr())
 		}
 	}
-
-	return nil
-}
-
-// 处理建立连接的用户
-func handleConnClients(c *websocket.Conn) {
-	roomId, roomIdInt := getRoomId()
-
-	for cKey, wcl := range rooms[roomIdInt] {
-		if wcl.Uid == clientMsg.Data.(map[string]interface{})["uid"].(float64) {
-			mutex.Lock()
-			// 通知当前用户下线
-			wcl.Conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
-			rooms[roomIdInt] = append(rooms[roomIdInt][:cKey], rooms[roomIdInt][cKey+1:]...)
-			mutex.Unlock()
-		}
-	}
-
-	mutex.Lock()
-	rooms[roomIdInt] = append(rooms[roomIdInt], wsClients{
-		Conn:       c,
-		RemoteAddr: c.RemoteAddr().String(),
-		Uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
-		Username:   clientMsg.Data.(map[string]interface{})["username"].(string),
-		RoomId:     roomId,
-		AvatarId:   clientMsg.Data.(map[string]interface{})["avatar_id"].(string),
-	})
-	mutex.Unlock()
-}
-
-func handleConnClients2(c *websocket.Conn, roomId string) {
-	rooms2 <- wsClients{
-		Conn:       c,
-		RemoteAddr: c.RemoteAddr().String(),
-		Uid:        clientMsg.Data.(map[string]interface{})["uid"].(float64),
-		Username:   clientMsg.Data.(map[string]interface{})["username"].(string),
-		RoomId:     roomId,
-		AvatarId:   clientMsg.Data.(map[string]interface{})["avatar_id"].(string),
-	}
-}
-
-func handleMsg(msg []byte) {
-	clientMsg2 <- msg
 }
 
 // 统一消息发放
@@ -299,7 +184,7 @@ func disconnect(conn *websocket.Conn) {
 }
 
 // 格式化传送给客户端的消息数据
-func formatServeMsgStr(status int) []byte {
+func formatServeMsgStr(status int) ([]byte, msg) {
 
 	roomId, roomIdInt := getRoomId()
 
@@ -352,7 +237,7 @@ func formatServeMsgStr(status int) []byte {
 	}
 	serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
 
-	return serveMsgStr
+	return serveMsgStr, jsonStrServeMsg
 }
 
 func getRoomId() (string, int) {

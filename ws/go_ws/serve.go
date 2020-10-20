@@ -95,11 +95,11 @@ func read(c *websocket.Conn) {
 		// 处理心跳响应 , heartbeat为与客户端约定的值
 		//log.Println(string(serveMsgStr))
 		if string(serveMsgStr) == `heartbeat` {
-
-			clientMsg3 <- msg{
-				Status: 0,
-				Data:   "heartbeat ok",
-			}
+			c.WriteMessage(websocket.TextMessage, []byte(`{"status":0,"data":"heartbeat ok"}`))
+			//clientMsg3 <- msg{
+			//	Status: 0,
+			//	Data:   "heartbeat ok",
+			//}
 		}
 
 		json.Unmarshal(message, &clientMsg)
@@ -132,14 +132,9 @@ func write(c *websocket.Conn) {
 			log.Println("room2", r, c.RemoteAddr())
 		case cl := <-clientMsg3:
 
-			serveMsgStr, _ := json.Marshal(cl)
-
-			switch cl.Status {
-
-			case 0:
-				c.WriteMessage(websocket.TextMessage, serveMsgStr)
-
-			}
+			//serveMsgStr, _ := json.Marshal(cl)
+			//
+			//c.WriteMessage(websocket.TextMessage, serveMsgStr)
 
 			log.Println("cl", cl, c.RemoteAddr())
 		}

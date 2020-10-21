@@ -2,6 +2,7 @@ package primary
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 	"go-gin-chat/ws"
 	"go-gin-chat/ws/go_ws"
 )
@@ -14,7 +15,8 @@ var serveMap = map[string]ws.ServeInterface{
 
 func Create() ws.ServeInterface {
 	// GoServe or Serve
-	return serveMap["GoServe"]
+	_type := viper.GetString("app.serve_type")
+	return serveMap[_type]
 }
 
 func Start(gin *gin.Context)  {

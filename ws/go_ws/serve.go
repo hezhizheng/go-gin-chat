@@ -98,6 +98,14 @@ func Run(gin *gin.Context) {
 }
 
 func read(c *websocket.Conn) {
+
+	defer func() {
+		//捕获read抛出的panic
+		if err := recover();err!=nil{
+			log.Println("read发生错误",err)
+		}
+	}()
+
 	for {
 		_, message, err := c.ReadMessage()
 		//log.Println("message", string(message))
@@ -138,6 +146,14 @@ func read(c *websocket.Conn) {
 }
 
 func write() {
+
+	defer func() {
+		//捕获write抛出的panic
+		if err := recover();err!=nil{
+			log.Println("write发生错误",err)
+		}
+	}()
+
 	for {
 		select {
 		case r := <-enterRooms:

@@ -179,3 +179,6 @@ gox -osarch="linux/amd64"
 - [x] 私聊
 - [x] 在线用户列表
 - [x] https支持
+
+## License
+[MIT](./LICENSE.txt)

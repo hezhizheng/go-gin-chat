@@ -5,7 +5,7 @@ import (
 	"go-gin-chat/services/helper"
 	"go-gin-chat/services/message_service"
 	"go-gin-chat/services/user_service"
-	"go-gin-chat/ws"
+	"go-gin-chat/ws/primary"
 	"net/http"
 	"strconv"
 )
@@ -18,7 +18,7 @@ func Index(c *gin.Context) {
 		return
 	}
 
-	OnlineUserCount := ws.GetOnlineUserCount()
+	OnlineUserCount := primary.OnlineUserCount()
 
 	c.HTML(http.StatusOK, "login.html", gin.H{
 		"OnlineUserCount": OnlineUserCount,
@@ -36,12 +36,12 @@ func Logout(c *gin.Context) {
 func Home(c *gin.Context) {
 	userInfo := user_service.GetUserInfo(c)
 	rooms := []map[string]interface{}{
-		{"id": 1, "num": ws.GetOnlineRoomUserCount(1)},
-		{"id": 2, "num": ws.GetOnlineRoomUserCount(2)},
-		{"id": 3, "num": ws.GetOnlineRoomUserCount(3)},
-		{"id": 4, "num": ws.GetOnlineRoomUserCount(4)},
-		{"id": 5, "num": ws.GetOnlineRoomUserCount(5)},
-		{"id": 6, "num": ws.GetOnlineRoomUserCount(6)},
+		{"id": 1, "num": primary.OnlineRoomUserCount(1)},
+		{"id": 2, "num": primary.OnlineRoomUserCount(2)},
+		{"id": 3, "num": primary.OnlineRoomUserCount(3)},
+		{"id": 4, "num": primary.OnlineRoomUserCount(4)},
+		{"id": 5, "num": primary.OnlineRoomUserCount(5)},
+		{"id": 6, "num": primary.OnlineRoomUserCount(6)},
 	}
 
 	c.HTML(http.StatusOK, "index.html", gin.H{

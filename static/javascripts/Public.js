@@ -22,7 +22,7 @@ function _time(time = +new Date()) {
 
 function WebSocketConnect(userInfo,toUserInfo = null) {
 	if ("WebSocket" in window) {
-		console.log("您的浏览器支持 WebSocket!");
+		//console.log("您的浏览器支持 WebSocket!");
 
 		if ( userInfo.uid <= 0 )
 		{
@@ -45,7 +45,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 
 		ws.onopen = function () {
 			ws.send(send_data);
-			console.log("send_data 发送数据", send_data)
+			//console.log("send_data 发送数据", send_data)
 		};
 
 		// if ( toUserInfo )

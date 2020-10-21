@@ -6,7 +6,7 @@ import (
 	"go-gin-chat/bindata"
 	"go-gin-chat/controller"
 	"go-gin-chat/services/session"
-	ws "go-gin-chat/ws/go_ws"
+	"go-gin-chat/ws/primary"
 )
 
 func InitRoute() *gin.Engine {
@@ -31,10 +31,11 @@ func InitRoute() *gin.Engine {
 
 		sr.POST("/login", controller.Login)
 		sr.GET("/logout", controller.Logout)
+		sr.GET("/ws", primary.Start)
 
 		authorized := sr.Group("/", session.AuthSessionMiddle())
 		{
-			authorized.GET("/ws", ws.Run)
+			//authorized.GET("/ws", ws.Run)
 			authorized.GET("/home", controller.Home)
 			authorized.GET("/room/:room_id", controller.Room)
 			authorized.GET("/private-chat", controller.PrivateChat)

@@ -12,6 +12,22 @@ import (
 	"time"
 )
 
+type Serve struct {
+	ServeInterface
+}
+
+func (serve *Serve) RunWs(gin *gin.Context)  {
+	Run(gin)
+}
+
+func (serve *Serve) GetOnlineUserCount() int {
+	return GetOnlineUserCount()
+}
+
+func (serve *Serve) GetOnlineRoomUserCount(roomId int) int  {
+	return GetOnlineRoomUserCount(roomId)
+}
+
 // 客户端连接详情
 type wsClients struct {
 	Conn *websocket.Conn `json:"conn"`

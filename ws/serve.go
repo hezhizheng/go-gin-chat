@@ -168,6 +168,7 @@ func handleConnClients(c *websocket.Conn) {
 			// 通知当前用户下线
 			wcl.Conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
 			rooms[roomIdInt] = append(rooms[roomIdInt][:cKey], rooms[roomIdInt][cKey+1:]...)
+			wcl.Conn.Close()
 			mutex.Unlock()
 		}
 	}
@@ -215,6 +216,7 @@ func disconnect(conn *websocket.Conn) {
 
 			mutex.Lock()
 			rooms[roomIdInt] = append(rooms[roomIdInt][:index], rooms[roomIdInt][index+1:]...)
+			con.Conn.Close()
 			mutex.Unlock()
 			notify(conn, disMsg)
 		}

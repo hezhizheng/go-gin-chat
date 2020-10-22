@@ -8,7 +8,7 @@
 
 ## feature
 - 登录/注册(防止重复登录)
-- 群聊(支持文字、emoji、图片、多房间)
+- 群聊(支持文字、emoji、文件(图片)上传、多房间)
 - 私聊(消息提醒)
 - 历史消息查看(暂时仅支持最新100条)
 - 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js

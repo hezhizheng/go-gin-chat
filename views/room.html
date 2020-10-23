@@ -10,6 +10,9 @@
     <link rel="stylesheet" href="/static/emoji/emojionearea.min.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
 
+    <link rel="stylesheet" href="https://unpkg.com/mescroll.js@1.4.1/mescroll.min.css">
+    <script src="https://unpkg.com/mescroll.js@1.4.1/mescroll.min.js" charset="utf-8"></script>
+
     <script type="text/javascript" src="//cdn.staticfile.org/jquery/1.11.2/jquery.min.js"></script>
     <script type="text/javascript" src="//cdn.staticfile.org/twitter-bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
@@ -52,9 +55,17 @@
         </ul>
         <div class="clapboard hidden"></div>
     </div>
-    <div class="main container">
+    <div id="mescroll" class="main container mescroll">
         <div class="col-md-12">
             <ul class="chat_info">
+
+                <li id="chat-list-li-top" class="systeminfo">
+                    <span>
+                        提示：下拉可以加载更多消息哦！
+                    </span>
+                </li>
+
+                <li id="hidden-chat-list-li-top" data-offset="100" data-list-cout="{{ .msg_list_count }}" style="display: none"></li>
 
 
                 {{$uid:= .user_info.uid}}
@@ -126,6 +137,89 @@
 </div>
 </body>
 
+
+<script>
+
+    var mescroll = new MeScroll("mescroll", { //第一个参数"mescroll"对应上面布局结构div的id (1.3.5版本支持传入dom对象)
+        //如果您的下拉刷新是重置列表数据,那么down完全可以不用配置,具体用法参考第一个基础案例
+        //解析: down.callback默认调用mescroll.resetUpScroll(),而resetUpScroll会将page.num=1,再触发up.callback
+        down: {
+            callback: function (mescroll ){
+                let offset = $("#hidden-chat-list-li-top").attr("data-offset")
+                let room_id = 1
+                console.log("offset",offset)
+                $.ajax({
+                    url: '/pagination?room_id='+room_id+'&offset='+offset,
+                    success: function(data) {
+                        //联网成功的回调,隐藏下拉刷新的状态;
+                        //无参. 注意结束下拉刷新是无参的
+                        mescroll.endSuccess();
+
+                        //设置数据
+
+
+                        var item = data.data.list
+                        if ( item == null )
+                        {
+                            // 销毁 mescroll
+                            // mescroll.lockDownScroll( true );
+                            // 还原 offset
+                            $("#hidden-chat-list-li-top").attr("data-offset",offset)
+                            // 隐藏下拉加载提示
+                            $('#chat-list-li-top').hide()
+
+                            // todo 提示之后页面就没有mescroll效果了
+                            // alert('没有更多了！');
+                            // layer.msg('没有更多了！',function (){
+                            //     return false
+                            // })
+                        }
+
+
+                        $.each(item,function (index, value) {
+                            if ( value.user_id == $("#body-room").attr("data-uid") )
+                            {
+                                $('#chat-list-li-top').append(
+                                    '<li class="right"><img src="/static/images/user/' +
+                                    value.avatar_id +
+                                    '.png" alt=""><b>' +
+                                    value.username +
+                                    '</b><i>' +
+                                    value.created_at +
+                                    '</i><div class="aaa">' +
+                                    value.content+
+                                    '</div></li>');
+                            }else{
+                                $('#chat-list-li-top').append(
+                                    '<li class="left"><img src="/static/images/user/' +
+                                    value.avatar_id +
+                                    '.png" alt=""><b>' +
+                                    value.username +
+                                    '</b><i>' +
+                                    value.created_at +
+                                    '</i><div class="aaa">' +
+                                    value.content+
+                                    '</div></li>');
+                            }
+
+                        })
+                        $("#hidden-chat-list-li-top").attr("data-offset",parseInt(offset)+100)
+
+                    },
+                    error: function(data) {
+                        //联网失败的回调,隐藏下拉刷新的状态
+                        mescroll.endErr();
+                    }
+                });
+
+
+
+            }, //下拉刷新的回调,别写成downCallback(),多了括号就自动执行方法了
+            auto : false
+        },
+    });
+
+</script>
 
 <script>
 

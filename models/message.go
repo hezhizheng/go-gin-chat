@@ -39,7 +39,7 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string) []map[string]interface{} {
+func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -47,7 +47,8 @@ func GetLimitMsg(roomId string) []map[string]interface{} {
 		Joins("INNER Join users on users.id = messages.user_id").
 		Where("messages.room_id = " + roomId).
 		Where("messages.to_user_id = 0").
-		Order("id desc").
+		Order("messages.id desc").
+		Offset(offset).
 		Limit(100).
 		Scan(&results)
 
@@ -69,7 +70,7 @@ func GetLimitPrivateMsg(uid, toUId string) []map[string]interface{} {
 			" or " +
 			"(" + "messages.user_id = " + toUId + " and messages.to_user_id=" + uid + ")" +
 			")").
-		Order("id desc").
+		Order("messages.id desc").
 		Limit(1000).
 		Scan(&results)
 

@@ -6,15 +6,16 @@ import (
 	"go-gin-chat/services/message_service"
 	"go-gin-chat/services/user_service"
 	"go-gin-chat/ws/primary"
+	"log"
 	"net/http"
 	"strconv"
 )
 
 func Index(c *gin.Context) {
-    // 已登录跳转room界面，多页面应该考虑放在中间件实现
+	// 已登录跳转room界面，多页面应该考虑放在中间件实现
 	userInfo := user_service.GetUserInfo(c)
-	if len(userInfo) > 0  {
-		c.Redirect(http.StatusFound,"/home")
+	if len(userInfo) > 0 {
+		c.Redirect(http.StatusFound, "/home")
 		return
 	}
 
@@ -45,7 +46,7 @@ func Home(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "index.html", gin.H{
-		"rooms": rooms,
+		"rooms":     rooms,
 		"user_info": userInfo,
 	})
 }
@@ -53,20 +54,21 @@ func Home(c *gin.Context) {
 func Room(c *gin.Context) {
 	roomId := c.Param("room_id")
 
-	rooms := []string{"1","2","3","4","5","6"}
+	rooms := []string{"1", "2", "3", "4", "5", "6"}
 
-	if !helper.InArray(roomId,rooms) {
-		c.Redirect(http.StatusFound,"/room/1")
+	if !helper.InArray(roomId, rooms) {
+		c.Redirect(http.StatusFound, "/room/1")
 		return
 	}
 
 	userInfo := user_service.GetUserInfo(c)
-	msgList := message_service.GetLimitMsg(roomId)
+	msgList := message_service.GetLimitMsg(roomId, 0)
 
 	c.HTML(http.StatusOK, "room.html", gin.H{
 		"user_info": userInfo,
-		"msg_list":msgList,
-		"room_id":roomId,
+		"msg_list":  msgList,
+		"msg_list_count":  len(msgList),
+		"room_id":   roomId,
 	})
 }
 
@@ -79,11 +81,42 @@ func PrivateChat(c *gin.Context) {
 
 	uid := strconv.Itoa(int(userInfo["uid"].(uint)))
 
-	msgList := message_service.GetLimitPrivateMsg(uid,toUid)
+	msgList := message_service.GetLimitPrivateMsg(uid, toUid)
 
 	c.HTML(http.StatusOK, "private_chat.html", gin.H{
 		"user_info": userInfo,
-		"msg_list":msgList,
-		"room_id":roomId,
+		"msg_list":  msgList,
+		"room_id":   roomId,
+	})
+}
+
+func Pagination(c *gin.Context) {
+	roomId := c.Query("room_id")
+	offset := c.Query("offset")
+	offsetInt, e := strconv.Atoi(offset)
+	if e != nil || offsetInt <= 0 {
+		offsetInt = 0
+	}
+
+	rooms := []string{"1", "2", "3", "4", "5", "6"}
+
+	if !helper.InArray(roomId, rooms) {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"data": map[string]interface{}{
+				"list": nil,
+			},
+		})
+		return
+	}
+
+	log.Println(offsetInt,"offsetInt")
+	msgList := message_service.GetLimitMsg(roomId, offsetInt)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": map[string]interface{}{
+			"list": msgList,
+		},
 	})
 }

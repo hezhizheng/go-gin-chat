@@ -5,8 +5,10 @@ var mescroll = new MeScroll("mescroll", { //第一个参数"mescroll"对应上�
         callback: function (mescroll ){
             let offset = $("#hidden-chat-list-li-top").attr("data-offset")
             let room_id = 1
+            let uid = getURLParam('uid')
+            console.log("uid",uid)
             $.ajax({
-                url: '/pagination?room_id='+room_id+'&offset='+offset,
+                url: '/pagination?room_id='+room_id+'&offset='+offset+'&uid='+uid,
                 success: function(data) {
                     //联网成功的回调,隐藏下拉刷新的状态;
                     //无参. 注意结束下拉刷新是无参的
@@ -66,3 +68,7 @@ var mescroll = new MeScroll("mescroll", { //第一个参数"mescroll"对应上�
         auto : false
     },
 });
+
+var getURLParam = function(name) {
+    return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)', "ig").exec(location.search) || [, ""])[1].replace(/\+/g, '%20')) || '';
+};

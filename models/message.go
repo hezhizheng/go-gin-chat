@@ -61,7 +61,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -73,12 +73,15 @@ func GetLimitPrivateMsg(uid, toUId string) []map[string]interface{} {
 			"(" + "messages.user_id = " + toUId + " and messages.to_user_id=" + uid + ")" +
 			")").
 		Order("messages.id desc").
-		Limit(1000).
+		Offset(offset).
+		Limit(100).
 		Scan(&results)
 
-	sort.Slice(results, func(i, j int) bool {
-		return results[i]["id"].(uint32) < results[j]["id"].(uint32)
-	})
+	if offset == 0{
+		sort.Slice(results, func(i, j int) bool {
+			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
+		})
+	}
 
 	return results
 }

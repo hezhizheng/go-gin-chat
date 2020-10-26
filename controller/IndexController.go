@@ -6,7 +6,6 @@ import (
 	"go-gin-chat/services/message_service"
 	"go-gin-chat/services/user_service"
 	"go-gin-chat/ws/primary"
-	"log"
 	"net/http"
 	"strconv"
 )
@@ -81,7 +80,7 @@ func PrivateChat(c *gin.Context) {
 
 	uid := strconv.Itoa(int(userInfo["uid"].(uint)))
 
-	msgList := message_service.GetLimitPrivateMsg(uid, toUid)
+	msgList := message_service.GetLimitPrivateMsg(uid, toUid,0)
 
 	c.HTML(http.StatusOK, "private_chat.html", gin.H{
 		"user_info": userInfo,
@@ -92,6 +91,7 @@ func PrivateChat(c *gin.Context) {
 
 func Pagination(c *gin.Context) {
 	roomId := c.Query("room_id")
+	toUid := c.Query("uid")
 	offset := c.Query("offset")
 	offsetInt, e := strconv.Atoi(offset)
 	if e != nil || offsetInt <= 0 {
@@ -110,8 +110,16 @@ func Pagination(c *gin.Context) {
 		return
 	}
 
-	log.Println(offsetInt,"offsetInt")
-	msgList := message_service.GetLimitMsg(roomId, offsetInt)
+	msgList := []map[string]interface{}{}
+	if toUid != ""{
+		userInfo := user_service.GetUserInfo(c)
+
+		uid := strconv.Itoa(int(userInfo["uid"].(uint)))
+
+		msgList = message_service.GetLimitPrivateMsg(uid, toUid,offsetInt)
+	}else{
+		msgList = message_service.GetLimitMsg(roomId, offsetInt)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,

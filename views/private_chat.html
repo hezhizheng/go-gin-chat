@@ -10,11 +10,14 @@
     <link rel="stylesheet" href="/static/emoji/emojionearea.min.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
 
+    <link rel="stylesheet" href="https://unpkg.com/mescroll.js@1.4.1/mescroll.min.css">
+    <script src="https://unpkg.com/mescroll.js@1.4.1/mescroll.min.js" charset="utf-8"></script>
+
     <script type="text/javascript" src="//cdn.staticfile.org/jquery/1.11.2/jquery.min.js"></script>
     <script type="text/javascript" src="//cdn.staticfile.org/twitter-bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
     <script type="text/javascript" src="/static/javascripts/websocket-heartbeat.js"></script>
-    <script type="text/javascript" src="/static/javascripts/Public.js?t=20201017142715"></script>
+    <script type="text/javascript" src="/static/javascripts/Public.js?t=20201026151600"></script>
     <script type="text/javascript" src="/static/emoji/emojionearea.min.js"></script>
     <script type="text/javascript" src="//cdn.staticfile.org/layer/3.1.1/layer.js"></script>
 
@@ -24,9 +27,17 @@
       data-avatar_id="{{ .user_info.avatar_id }}" data-room_id="{{ .room_id }}">
 
 <div class="scrollbar-macosx">
-    <div class="main container">
+    <div id="mescroll" class="main container mescroll">
         <div class="col-md-12">
             <ul class="chat_info">
+
+                <li id="chat-list-li-top" class="systeminfo">
+                    <span>
+                        提示：下拉可以加载更多消息哦！
+                    </span>
+                </li>
+
+                <li id="hidden-chat-list-li-top" data-offset="100" data-list-cout="{{ .msg_list_count }}" style="display: none"></li>
 
 
                 {{$uid:= .user_info.uid}}
@@ -98,37 +109,15 @@
 </div>
 </body>
 
+<script type="text/javascript" src="/static/javascripts/mescroll-set.js"></script>
 
 <script>
-
     $(document).ready(function () {
-
-        let toUserInfo =  {
-            uid : getQueryVariable('uid'),
-            username : getQueryVariable('username'),
-            room_id : getQueryVariable('room_id'),
-            avatar_id : getQueryVariable('avatar_id'),
-        }
-
-        //console.log("get toUserInfo",toUserInfo)
-
         // 滚动到底部
         $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
             scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
         }, 500);
     });
-
-
-</script>
-
-<script>
-
-    $(document).on('click', '.li-user-item', function(e) {
-        let uid = $(this).attr('data-uid')
-        let username = $(this).attr('data-username')
-        console.log(uid,username)
-    });
-
 </script>
 
 <script>
@@ -143,67 +132,6 @@
             }
         }
     })
-</script>
-
-<script>
-
-    $("._logout").click(function () {
-        clearCookie();
-        window.location.assign("/");
-        // window.location.href = '/';
-    });
-
-    function foreach()
-    {
-        var strCookie=document.cookie;
-        var arrCookie=strCookie.split("; ");
-        for(var i=0;i<arrCookie.length;i++)
-        {
-            var arr=arrCookie[i].split("=");
-            if(arr.length>0)
-                DelCookie(arr[0]);
-        }
-    }
-    function GetCookieVal(offset)
-    {
-        var endstr = document.cookie.indexOf (";", offset);
-        if (endstr == -1)
-            endstr = document.cookie.length;
-        return decodeURIComponent(document.cookie.substring(offset, endstr));
-    }
-    function DelCookie(name)
-    {
-        var exp = new Date();
-        exp.setTime (exp.getTime() - 1);
-        var cval = GetCookie (name);
-        document.cookie = name + "=" + cval + "; expires="+ exp.toGMTString();
-    }
-    function GetCookie(name)
-    {
-        var arg = name + "=";
-        var alen = arg.length;
-        var clen = document.cookie.length;
-        var i = 0;
-        while (i < clen)
-        {
-            var j = i + alen;
-            if (document.cookie.substring(i, j) == arg)
-                return GetCookieVal (j);
-            i = document.cookie.indexOf(" ", i) + 1;
-            if (i == 0) break;
-        }
-        return null;
-    }
-    function clearCookie(){
-        var date=new Date();
-        date.setTime(date.getTime()-10000);
-        var keys=document.cookie.match(/[^ =;]+(?=\=)/g);
-        if (keys) {
-            for (var i =  keys.length; i--;)
-                document.cookie=keys[i]+"=0; expire="+date.toGMTString()+"; path=/";
-        }
-    }
-
 </script>
 
 </html>

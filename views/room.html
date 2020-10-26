@@ -18,6 +18,7 @@
     <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
     <script type="text/javascript" src="/static/javascripts/websocket-heartbeat.js"></script>
     <script type="text/javascript" src="/static/javascripts/Public.js?t=20201017142715"></script>
+{{/*    <script type="text/javascript" src="/static/javascripts/mescroll-set.js"></script>*/}}
     <script type="text/javascript" src="/static/emoji/emojionearea.min.js"></script>
     <script type="text/javascript" src="//cdn.staticfile.org/layer/3.1.1/layer.js"></script>
 
@@ -161,25 +162,20 @@
                         var item = data.data.list
                         if ( item == null )
                         {
+                            layer.msg('没有更多了！')
                             // 销毁 mescroll
-                            // mescroll.lockDownScroll( true );
+                            mescroll.lockDownScroll( true );
                             // 还原 offset
                             $("#hidden-chat-list-li-top").attr("data-offset",offset)
-                            // 隐藏下拉加载提示
-                            $('#chat-list-li-top').hide()
 
-                            // todo 提示之后页面就没有mescroll效果了
-                            // alert('没有更多了！');
-                            // layer.msg('没有更多了！',function (){
-                            //     return false
-                            // })
+                            return false
                         }
 
 
                         $.each(item,function (index, value) {
                             if ( value.user_id == $("#body-room").attr("data-uid") )
                             {
-                                $('#chat-list-li-top').append(
+                                $('#chat-list-li-top').after(
                                     '<li class="right"><img src="/static/images/user/' +
                                     value.avatar_id +
                                     '.png" alt=""><b>' +
@@ -190,7 +186,7 @@
                                     value.content+
                                     '</div></li>');
                             }else{
-                                $('#chat-list-li-top').append(
+                                $('#chat-list-li-top').after(
                                     '<li class="left"><img src="/static/images/user/' +
                                     value.avatar_id +
                                     '.png" alt=""><b>' +

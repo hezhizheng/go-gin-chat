@@ -52,9 +52,11 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	sort.Slice(results, func(i, j int) bool {
-		return results[i]["id"].(uint32) < results[j]["id"].(uint32)
-	})
+	if offset == 0{
+		sort.Slice(results, func(i, j int) bool {
+			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
+		})
+	}
 
 	return results
 }

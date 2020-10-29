@@ -110,7 +110,7 @@ func read(c *websocket.Conn) {
 
 	for {
 		_, message, err := c.ReadMessage()
-		log.Println("client message", string(message),c.RemoteAddr())
+		// log.Println("client message", string(message),c.RemoteAddr())
 		if err != nil { // 离线通知
 			offline <- c
 			log.Println("ReadMessage error1", err)

@@ -52,6 +52,8 @@ var (
 	sMsg = make(chan msg)
 
 	offline = make(chan *websocket.Conn)
+
+	chNotify = make(chan int ,1)
 )
 
 // 定义消息类型
@@ -164,12 +166,16 @@ func write() {
 			case msgTypeOnline, msgTypeSend:
 				notify(cl.Conn, string(serveMsgStr))
 			case msgTypeGetOnlineUser:
+				chNotify <- 1
 				cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+				<-chNotify
 			case msgTypePrivateChat:
+				chNotify <- 1
 				toC := findToUserCoonClient()
 				if toC != nil {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
+				<-chNotify
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -221,12 +227,14 @@ func findToUserCoonClient() interface{} {
 
 // 统一消息发放
 func notify(conn *websocket.Conn, msg string) {
+	chNotify <- 1 // 利用channel阻塞 避免并发去对同一个连接发送消息出现panic: concurrent write to websocket connection这样的异常
 	_, roomIdInt := getRoomId()
 	for _, con := range rooms[roomIdInt] {
 		if con.RemoteAddr != conn.RemoteAddr().String() {
 			con.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 		}
 	}
+	<-chNotify
 }
 
 // 离线通知

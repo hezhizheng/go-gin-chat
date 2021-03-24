@@ -19,35 +19,109 @@
 ## 结构
 ```
 .
-|-- bindata
-|-- conf
+|-- LICENSE.txt
+|-- conf #配置文件
+|   |-- config.go
+|   `-- config.go.env
 |-- controller
+|   |-- ImageController.go
+|   `-- IndexController.go
+|-- main.go
 |-- models
+|   |-- message.go
+|   |-- mysql.go
+|   `-- user.go
 |-- routes
-|-- services
+|   `-- route.go
+|-- services # 简单逻辑处理服务层
 |   |-- helper
+|   |   `-- helper.go
 |   |-- img_kr
+|   |   `-- imgKr.go
 |   |-- message_service
+|   |   `-- message.go
 |   |-- session
+|   |   `-- session.go
 |   |-- user_service
+|   |   `-- user.go
 |   `-- validator
+|       `-- validator.go
 |-- sql
-|-- static
-|   |-- emoji
-|   |-- images
-|   |   |-- rooms
-|   |   |-- theme
-|   |   `-- user
-|   |-- javascripts
-|   |-- rolling
-|   |   |-- css
-|   |   `-- js
-|   `-- stylesheets
-|-- tmp
+|   `-- go_gin_chat.sql
+|-- static #静态文件 js 、css 、image 目录
 |-- views
-`-- ws
-
+|   |-- index.html
+|   |-- login.html
+|   |-- private_chat.html
+|   `-- room.html
+`-- ws websocket 服务端主要逻辑
+    |-- ServeInterface.go 
+    |-- go_ws
+    |   `-- serve.go # websocket服务端处理代码
+    |-- primary
+    |   `-- start.go # 为了兼容新旧版 websocket服务端 的调用策略
+    |-- serve.go # 初版websocket服务端逻辑代码，可以忽略
+    `-- ws_test #本地测试代码
+        |-- exec.go
+        `-- mock_ws_client_coon.go
 ```
+
+## 伪代码，详情可参考 [serve.go](./ws/go_ws/serve.go)
+- 定义客户端信息的结构体
+```go
+type wsClients struct {
+Conn *websocket.Conn `json:"conn"`
+
+RemoteAddr string `json:"remote_addr"`
+
+Uid float64 `json:"uid"`
+
+Username string `json:"username"`
+
+RoomId string `json:"room_id"`
+
+AvatarId string `json:"avatar_id"`
+}
+
+// 
+```
+- 定义全局变量
+```go
+
+// client & serve 的消息体
+type msg struct {
+Status int             `json:"status"`
+Data   interface{}     `json:"data"`
+Conn   *websocket.Conn `json:"conn"`
+}
+
+// 上线、离线、消息发送事件 的 无缓冲区的 channel
+var (
+clientMsg = msg{}
+
+enterRooms = make(chan wsClients)
+
+sMsg = make(chan msg)
+
+offline = make(chan *websocket.Conn)
+
+chNotify = make(chan int ,1)
+)
+```  
+- 使用 make 创建一个全局的 `map slice` 用于存放房间与用户的信息，用户上线、离线实际上是对map的 append 跟 remove
+```go
+var (
+rooms = make(map[int][]wsClients)
+)
+```
+- 开启`goroutine`处理用户的连接、离线、消息发送等各个事件
+```go
+go read(c)
+go write()
+select {}
+```
+
+
 
 ## 界面
 ![](https://static01.imgkr.com/temp/5c3c9096ef9f4796b404dd2f3e23c36d.png)

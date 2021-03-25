@@ -8,7 +8,7 @@
 
 ## feature
 - 登录/注册(防止重复登录)
-- 群聊(支持文字、emoji、文件(图片)上传、多房间)
+- 群聊(多房间、支持文字、emoji、文件(图片)上传，使用 [图壳](https://imgkr.com/) 做图床 )
 - 私聊(消息提醒)
 - 历史消息查看(点击加载更多)
 - 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js
@@ -240,7 +240,7 @@ server {
 ```
 # 用法参考 https://github.com/mitchellh/gox
 # 生成文件可直接执行 Linux
-gox -osarch="linux/amd64"
+gox -osarch="linux/amd64" -ldflags "-s -w" -gcflags="all=-trimpath=${PWD}" -asmflags="all=-trimpath=${PWD}"
 ......
 ```
 

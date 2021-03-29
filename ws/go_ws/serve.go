@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"go-gin-chat/models"
+	"go-gin-chat/services/helper"
 	"go-gin-chat/ws"
 	"log"
 	"net/http"
@@ -279,7 +280,13 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 
 	if status == msgTypeSend || status == msgTypePrivateChat {
 		data["avatar_id"] = clientMsg.Data.(map[string]interface{})["avatar_id"].(string)
-		data["content"] = clientMsg.Data.(map[string]interface{})["content"].(string)
+		content := clientMsg.Data.(map[string]interface{})["content"].(string)
+
+		data["content"] = content
+		if helper.MbStrLen(content) > 800 {
+			// 直接截断
+			data["content"] = string([]rune(content)[:800])
+		}
 
 		toUidStr := clientMsg.Data.(map[string]interface{})["to_uid"].(string)
 		toUid, _ := strconv.Atoi(toUidStr)

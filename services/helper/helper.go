@@ -3,6 +3,7 @@ package helper
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"unicode/utf8"
 )
 
 func InArray(needle interface{}, hystack interface{}) bool {
@@ -35,4 +36,8 @@ func Md5Encrypt(s string) string {
 	m := md5.New()
 	m.Write([]byte (s))
 	return hex.EncodeToString(m.Sum(nil))
+}
+
+func MbStrLen(str string) int {
+	return utf8.RuneCountInString(str)
 }

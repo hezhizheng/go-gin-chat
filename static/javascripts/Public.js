@@ -451,6 +451,18 @@ $(document).ready(function(){
 			$('#subxx').click();
 		}
 	});
+
+
+	function replaceImg() {
+		$(".load-img").each(function () {
+			let realImgUrl = $(this).attr("data-src");
+			if (realImgUrl !== "") {
+				$(this).attr("src", $(this).attr("data-src"))
+			}
+		});
+	}
+	setTimeout(replaceImg, 1500);
+
 });
 
 function getQueryVariable(variable)

@@ -14,7 +14,7 @@
     <script type="text/javascript" src="//cdn.staticfile.org/twitter-bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
     <script type="text/javascript" src="/static/javascripts/websocket-heartbeat.js"></script>
-    <script type="text/javascript" src="/static/javascripts/Public.js?t=20201026151600"></script>
+    <script type="text/javascript" src="/static/javascripts/Public.js?t=20201026151601"></script>
     <script type="text/javascript" src="/static/emoji/emojionearea.min.js"></script>
     <script type="text/javascript" src="//cdn.staticfile.org/layer/3.1.1/layer.js"></script>
 
@@ -53,7 +53,7 @@
 
                             <div>{{ .content }}</div>
                                 {{else}}
-                            <div><img src="{{ .image_url }}"/></div>
+                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
                         </li>
 
@@ -67,7 +67,7 @@
 
                                 <div>{{ .content }}</div>
                             {{else}}
-                                <div><img src="{{ .image_url }}"/></div>
+                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                             {{end}}
                         </li>
 
@@ -87,7 +87,7 @@
                 <input type="file" class="imgFileBtn hidden" accept="image/*">
 
                 <a href="https://github.com/hezhizheng/go-gin-chat" target="_blank">
-                    <img src="https://static01.imgkr.com/temp/76a80175a6944e14baa75ef298b52ec2.png" alt="Github" width="25px">
+                    <img src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094557_EXJYSDUKAFQLHAHZ.png" alt="Github" width="25px">
                 </a>
 
             </div>

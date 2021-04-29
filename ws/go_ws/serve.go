@@ -115,7 +115,7 @@ func read(c *websocket.Conn) {
 		if err != nil { // 离线通知
 			offline <- c
 			log.Println("ReadMessage error1", err)
-			break
+			return
 		}
 
 		serveMsgStr := message
@@ -189,12 +189,12 @@ func handleConnClients(c *websocket.Conn) {
 
 	for cKey, wcl := range rooms[roomIdInt] {
 		if wcl.Uid == clientMsg.Data.(map[string]interface{})["uid"].(float64) {
-			mutex.Lock()
 			// 通知当前用户下线
 			wcl.Conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
+			mutex.Lock()
 			rooms[roomIdInt] = append(rooms[roomIdInt][:cKey], rooms[roomIdInt][cKey+1:]...)
-			wcl.Conn.Close()
 			mutex.Unlock()
+			wcl.Conn.Close()
 		}
 	}
 
@@ -259,8 +259,8 @@ func disconnect(conn *websocket.Conn) {
 
 			mutex.Lock()
 			rooms[roomIdInt] = append(rooms[roomIdInt][:index], rooms[roomIdInt][index+1:]...)
-			con.Conn.Close()
 			mutex.Unlock()
+			con.Conn.Close()
 			notify(conn, disMsg)
 		}
 	}

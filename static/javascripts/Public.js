@@ -169,6 +169,12 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 			console.log("serve 连接已关闭... " + _time());
 			// console.log(c);
 		};
+		
+		ws.onerror = function (evt) {
+			ws.close()
+			console.log("触发 onerror",evt)
+		}
+		
 	} else {
 		// 浏览器不支持 WebSocket
 		alert("您的浏览器不支持 WebSocket!");

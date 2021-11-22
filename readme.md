@@ -13,7 +13,7 @@
 - 历史消息查看(点击加载更多)
 - 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js
 - go mod 包管理
-- 静态资源嵌入，运行只依赖编译好的可执行文件与mysql
+- 使用 Golang 1.16 embed 内嵌静态资源(html、js、css等)，运行只依赖编译好的可执行文件与mysql
 - 支持 http/ws 、 https/wss
 
 ## 结构
@@ -170,14 +170,13 @@ CREATE TABLE `users`  (
 - github.com/spf13/viper
 - https://blog.hi917.com/detail/87.html
 
-## 使用
+## 使用 (go version >= 1.16)
 
 ```
 # 自行导入数据库文件 sql/go_gin_chat.sql
 git clone github.com/hezhizheng/go-gin-chat
 cd go-gin-chat
 cp conf/config.go.env conf/config.go // 根据实际情况修改配置
-go-bindata -o=bindata/bindata.go -pkg=bindata ./static/... ./views/... // 安装请参考 https://blog.hi917.com/detail/87.html
 go run main.go 
 ```
 
@@ -244,8 +243,6 @@ gox -osarch="linux/amd64" -ldflags "-s -w" -gcflags="all=-trimpath=${PWD}" -asmf
 ......
 ```
 
-## Tip
-- 修改静态文件需要执行 `go-bindata -o=bindata/bindata.go -pkg=bindata ./static/... ./views/...`  重新编译
 
 ## todo
 - [x] 心跳机制

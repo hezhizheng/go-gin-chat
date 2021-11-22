@@ -1,29 +1,26 @@
 package routes
 
 import (
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/gin-gonic/gin"
-	"go-gin-chat/bindata"
+	"github.com/spf13/viper"
 	"go-gin-chat/controller"
 	"go-gin-chat/services/session"
+	"go-gin-chat/static"
 	"go-gin-chat/ws/primary"
+	"net/http"
 )
 
 func InitRoute() *gin.Engine {
 	//router := gin.Default()
 	router := gin.New()
 
-	fs := assetfs.AssetFS{
-		Asset:     bindata.Asset,
-		AssetDir:  bindata.AssetDir,
-		AssetInfo: nil,
-		Prefix:    "static", //一定要加前缀
+	if viper.GetString(`app.debug_mod`) == "false" {
+		// live 模式 打包用
+		router.StaticFS("/static", http.FS(static.EmbedStatic))
+	}else{
+		// dev 开发用 避免修改静态资源需要重启服务
+		router.StaticFS("/static", http.Dir("static"))
 	}
-	router.StaticFS("/static", &fs)
-
-	//router.Static("/static", "./static")
-	// router.StaticFS("/more_static", http.Dir("my_file_system"))
-	// router.StaticFile("/favicon.ico", "./resources/favicon.ico")
 
 	sr := router.Group("/", session.EnableCookieSession())
 	{

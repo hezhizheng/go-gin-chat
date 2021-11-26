@@ -186,8 +186,8 @@ func write() {
 
 func handleConnClients(c *websocket.Conn) {
 	roomId, roomIdInt := getRoomId()
-
-	for cKey, wcl := range rooms[roomIdInt] {
+	assignRoom := rooms[roomIdInt]
+	for cKey, wcl := range assignRoom {
 		if wcl.Uid == clientMsg.Data.(map[string]interface{})["uid"].(float64) {
 			// 通知当前用户下线
 			wcl.Conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
@@ -215,8 +215,8 @@ func findToUserCoonClient() interface{} {
 	_, roomIdInt := getRoomId()
 
 	toUserUid := clientMsg.Data.(map[string]interface{})["to_uid"].(string)
-
-	for _, c := range rooms[roomIdInt] {
+	assignRoom := rooms[roomIdInt]
+	for _, c := range assignRoom {
 		stringUid := strconv.FormatFloat(c.Uid, 'f', -1, 64)
 		if stringUid == toUserUid {
 			return c
@@ -230,7 +230,8 @@ func findToUserCoonClient() interface{} {
 func notify(conn *websocket.Conn, msg string) {
 	chNotify <- 1 // 利用channel阻塞 避免并发去对同一个连接发送消息出现panic: concurrent write to websocket connection这样的异常
 	_, roomIdInt := getRoomId()
-	for _, con := range rooms[roomIdInt] {
+	assignRoom := rooms[roomIdInt]
+	for _, con := range assignRoom {
 		if con.RemoteAddr != conn.RemoteAddr().String() {
 			con.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 		}
@@ -241,7 +242,8 @@ func notify(conn *websocket.Conn, msg string) {
 // 离线通知
 func disconnect(conn *websocket.Conn) {
 	_, roomIdInt := getRoomId()
-	for index, con := range rooms[roomIdInt] {
+	assignRoom := rooms[roomIdInt]
+	for index, con := range assignRoom {
 		if con.RemoteAddr == conn.RemoteAddr().String() {
 			data := map[string]interface{}{
 				"username": con.Username,

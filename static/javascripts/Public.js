@@ -327,7 +327,8 @@ $(document).ready(function(){
 		str = str.replace(/\>/g,'&gt;');
 		str = str.replace(/\n/g,'<br/>');
 		str = str.replace(/\[em_([0-9]*)\]/g,'<img src="images/face/$1.gif" alt="" />');
-		if(str!='') {
+
+		if($.trim(str)!=='') {
 
 			let to_uid = "0"
 			let status = 3

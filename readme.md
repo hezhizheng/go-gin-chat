@@ -168,7 +168,6 @@ CREATE TABLE `users`  (
 - github.com/gravityblast/fresh
 - github.com/valyala/fasthttp
 - github.com/spf13/viper
-- https://blog.hi917.com/detail/87.html
 
 ## 使用 (go version >= 1.16)
 

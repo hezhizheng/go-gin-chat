@@ -8,7 +8,7 @@
 
 ## feature
 - 登录/注册(防止重复登录)
-- 群聊(多房间、支持文字、emoji、文件(图片)上传，使用 [图壳](https://imgkr.com/) 做图床 )
+- 群聊(多房间、支持文字、emoji、文件(图片)上传，使用 [freeimage.host](https://freeimage.host/) 做图床 )
 - 私聊(消息提醒)
 - 历史消息查看(点击加载更多)
 - 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js

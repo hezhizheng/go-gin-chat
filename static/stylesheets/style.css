@@ -68,7 +68,7 @@ ul{
 	float: right;
 }
 .header .topnavlist>li{
-	width: 75px;
+	/*width: 75px;*/
 	height: 35px;
 	line-height: 35px;
 	text-align: center;
@@ -78,7 +78,8 @@ ul{
 	display: block;
 	position: relative;
 	z-index: 8889;
-	width: 75px;
+	/*width: 75px;*/
+	margin-right: 15px;
 	height: 35px;
 }
 .header .popover{
@@ -156,8 +157,8 @@ ul{
 	width: 100px;
 }
 .header .userlist .popover{
-	left: -80px;
-	width: 175px;
+	left: -150px;
+	width: 300px;
 }
 .header .userlist .popover-content{
 	max-height: 400px;

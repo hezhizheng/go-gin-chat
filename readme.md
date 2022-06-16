@@ -237,6 +237,7 @@ server {
 
 ```
 # 用法参考 https://github.com/mitchellh/gox
+# go install github.com/mitchellh/gox@latest (go 1.18)
 # 生成文件可直接执行 Linux
 gox -osarch="linux/amd64" -ldflags "-s -w" -gcflags="all=-trimpath=${PWD}" -asmflags="all=-trimpath=${PWD}"
 ......

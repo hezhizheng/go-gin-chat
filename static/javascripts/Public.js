@@ -399,7 +399,7 @@ $(document).ready(function(){
 
 
 	jQuery('.scrollbar-macosx').scrollbar();
-	$('.topnavlist li a').click(function(event) {
+	$('.topnavlist li a.a-user-list').click(function(event) {
 		$('.topnavlist .popover').not($(this).next('.popover')).removeClass('show');
 		$(this).next('.popover').toggleClass('show');
 		if($(this).next('.popover').attr('class')!='popover fade bottom in') {

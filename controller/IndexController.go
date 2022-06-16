@@ -64,10 +64,10 @@ func Room(c *gin.Context) {
 	msgList := message_service.GetLimitMsg(roomId, 0)
 
 	c.HTML(http.StatusOK, "room.html", gin.H{
-		"user_info": userInfo,
-		"msg_list":  msgList,
-		"msg_list_count":  len(msgList),
-		"room_id":   roomId,
+		"user_info":      userInfo,
+		"msg_list":       msgList,
+		"msg_list_count": len(msgList),
+		"room_id":        roomId,
 	})
 }
 
@@ -80,7 +80,7 @@ func PrivateChat(c *gin.Context) {
 
 	uid := strconv.Itoa(int(userInfo["uid"].(uint)))
 
-	msgList := message_service.GetLimitPrivateMsg(uid, toUid,0)
+	msgList := message_service.GetLimitPrivateMsg(uid, toUid, 0)
 
 	c.HTML(http.StatusOK, "private_chat.html", gin.H{
 		"user_info": userInfo,
@@ -111,13 +111,13 @@ func Pagination(c *gin.Context) {
 	}
 
 	msgList := []map[string]interface{}{}
-	if toUid != ""{
+	if toUid != "" {
 		userInfo := user_service.GetUserInfo(c)
 
 		uid := strconv.Itoa(int(userInfo["uid"].(uint)))
 
-		msgList = message_service.GetLimitPrivateMsg(uid, toUid,offsetInt)
-	}else{
+		msgList = message_service.GetLimitPrivateMsg(uid, toUid, offsetInt)
+	} else {
 		msgList = message_service.GetLimitMsg(roomId, offsetInt)
 	}
 

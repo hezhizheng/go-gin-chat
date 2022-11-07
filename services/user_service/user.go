@@ -2,12 +2,11 @@ package user_service
 
 import (
 	"github.com/gin-gonic/gin"
-	"go-gin-chat/models"
+	"go-gin-chat/models/redis_cache"
 	"go-gin-chat/services/helper"
 	"go-gin-chat/services/session"
 	"go-gin-chat/services/validator"
 	"net/http"
-	"strconv"
 )
 
 func Login(c *gin.Context) {
@@ -23,15 +22,15 @@ func Login(c *gin.Context) {
 	u.AvatarId = avatarId
 
 	if err := c.ShouldBind(&u); err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 5000,"msg": err.Error()})
+		c.JSON(http.StatusOK, gin.H{"code": 5000, "msg": err.Error()})
 		return
 	}
 
-	user := models.FindUserByField("username", username)
+	user := redis_cache.FindUserByField("username", username)
 	userInfo := user
 	md5Pwd := helper.Md5Encrypt(pwd)
 
-	if userInfo.ID > 0 {
+	if userInfo.ID != "" {
 		// json 用户存在
 		// 验证密码
 		if userInfo.Password != md5Pwd {
@@ -42,19 +41,19 @@ func Login(c *gin.Context) {
 			return
 		}
 
-		models.SaveAvatarId(avatarId,user)
+		redis_cache.SaveAvatarId(avatarId, user)
 
 	} else {
 		// 新用户
-		userInfo = models.AddUser(map[string]interface{}{
-			"username": username,
-			"password": md5Pwd,
-			"avatar_id": avatarId,
+		userInfo = redis_cache.AddUser(redis_cache.User{
+			Username: username,
+			Password: md5Pwd,
+			AvatarId: avatarId,
 		})
 	}
 
-	if userInfo.ID > 0 {
-		session.SaveAuthSession(c, string(strconv.Itoa(int(userInfo.ID))))
+	if userInfo.ID != "" {
+		session.SaveAuthSession(c, userInfo.ID)
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 		})
@@ -72,8 +71,8 @@ func GetUserInfo(c *gin.Context) map[string]interface{} {
 	return session.GetSessionUserInfo(c)
 }
 
-func Logout(c *gin.Context)  {
+func Logout(c *gin.Context) {
 	session.ClearAuthSession(c)
-	c.Redirect(http.StatusFound,"/")
+	c.Redirect(http.StatusFound, "/")
 	return
 }

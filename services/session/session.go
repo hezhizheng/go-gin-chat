@@ -5,9 +5,8 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"go-gin-chat/models"
+	"go-gin-chat/models/redis_cache"
 	"net/http"
-	"strconv"
 )
 
 func EnableCookieSession() gin.HandlerFunc {
@@ -30,7 +29,7 @@ func GetSessionUserInfo(c *gin.Context) map[string]interface{} {
 
 	data := make(map[string]interface{})
 	if uid != nil {
-		user := models.FindUserByField("id", uid.(string))
+		user := redis_cache.FindUserByField("id", uid.(string))
 		data["uid"] = user.ID
 		data["username"] = user.Username
 		data["avatar_id"] = user.AvatarId
@@ -62,9 +61,9 @@ func AuthSessionMiddle() gin.HandlerFunc {
 			return
 		}
 
-		uidInt, _ := strconv.Atoi(sessionValue.(string))
+		uidInt, _ := sessionValue.(string)
 
-		if uidInt <= 0 {
+		if uidInt == "" {
 			c.Redirect(http.StatusFound, "/")
 			return
 		}

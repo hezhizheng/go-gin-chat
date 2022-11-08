@@ -61,7 +61,39 @@
                 {{$uid:= .user_info.uid}}
                 {{$nullSrl:= ""}}
 
+                {{range .msg_list}}
 
+                    {{if eq $uid .user_id}}
+
+                        <li class="right">
+                            <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
+                            <b>{{ .username }}</b>
+                            <i>{{ .created_at }}</i>
+
+                            {{ if eq .image_url $nullSrl }}
+
+                            <div>{{ .content }}</div>
+                                {{else}}
+                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{end}}
+                        </li>
+
+                    {{else}}
+
+                        <li class="left">
+                            <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
+                            <b>{{ .username }}</b>
+                            <i>{{ .created_at }}</i>
+                            {{ if eq .image_url $nullSrl }}
+
+                                <div>{{ .content }}</div>
+                            {{else}}
+                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            {{end}}
+                        </li>
+
+                    {{end}}
+                {{end}}
 
 
             </ul>

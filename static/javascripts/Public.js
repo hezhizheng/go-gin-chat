@@ -35,7 +35,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 		let send_data = JSON.stringify({
 			"status": toUserInfo ? 5 : 1,
 			"data": {
-				"uid": userInfo.uid,
+				"uid": userInfo.uid.toString(),
 				"room_id": userInfo.room_id,
 				"avatar_id": userInfo.avatar_id,
 				"username": userInfo.username,
@@ -249,7 +249,7 @@ $(document).ready(function(){
 		let send_data = JSON.stringify({
 			"status": 4,
 			"data": {
-				"uid": parseInt($('.room').attr('data-uid')),
+				"uid": $('.room').attr('data-uid').toString(),
 				"username": $('.room').attr('data-username'),
 				"avatar_id": $('.room').attr('data-avatar_id'),
 				"room_id": $('.room').attr('data-room_id'),
@@ -289,7 +289,7 @@ $(document).ready(function(){
 			let send_data = JSON.stringify({
 				"status": status,
 				"data": {
-					"uid": parseInt($('.room').attr('data-uid')),
+					"uid": $('.room').attr('data-uid').toString(),
 					"username": $('.room').attr('data-username'),
 					"avatar_id": $('.room').attr('data-avatar_id'),
 					"room_id": $('.room').attr('data-room_id'),
@@ -344,7 +344,7 @@ $(document).ready(function(){
 			let send_data = JSON.stringify({
 				"status": status,
 				"data": {
-					"uid": parseInt($('.room').attr('data-uid')),
+					"uid": $('.room').attr('data-uid').toString(),
 					"username": $('.room').attr('data-username'),
 					"avatar_id": $('.room').attr('data-avatar_id'),
 					"room_id": $('.room').attr('data-room_id'),

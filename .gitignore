@@ -5,3 +5,4 @@
 /bindata
 *.exe
 *.exe~
+.air.toml

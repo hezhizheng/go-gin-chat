@@ -1,6 +1,7 @@
 package go_redis_ws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -8,6 +9,7 @@ import (
 	"go-gin-chat/models"
 	"go-gin-chat/models/redis_cache"
 	"go-gin-chat/services/helper"
+	"go-gin-chat/utils/redislib"
 	"go-gin-chat/ws"
 	"log"
 	"net/http"
@@ -213,30 +215,20 @@ func write() {
 func handleConnClients(c *websocket.Conn) {
 	roomId, _ := getRoomId()
 
-	//ctx := context.Background()
+	ctx := context.Background()
 
 	assignConn := wsConnMap[roomId+"-"+clientMsg.Data.Uid]
 
 	if assignConn != nil {
 
 		if assignConn.RemoteAddr().String() == c.RemoteAddr().String() {
-			//redislib.GetRedisInstance().HDel(ctx, "room_hset"+roomId, clientMsg.Data.Uid)
 			delete(wsConnMap, roomId+"-"+clientMsg.Data.Uid)
+			redislib.GetRedisInstance().SRem(ctx, "room_set"+roomId, clientMsg.Data.Uid)
 			assignConn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
 		}
 	}
 
-	//member, _ := json.Marshal(&wsClients{
-	//	Conn:       c,
-	//	RemoteAddr: c.RemoteAddr().String(),
-	//	Uid:        clientMsg.Data.Uid,
-	//	Username:   clientMsg.Data.Username,
-	//	RoomId:     roomId,
-	//	AvatarId:   clientMsg.Data.AvatarId,
-	//})
-
-	//redislib.GetRedisInstance().HSet(ctx, "room_hset"+roomId, clientMsg.Data.Uid, member)
-	//redislib.GetRedisInstance().SAdd(ctx, "room_set"+roomId, clientMsg.Data.Uid)
+	redislib.GetRedisInstance().SAdd(ctx, "room_set"+roomId, clientMsg.Data.Uid)
 
 	wsConnMap[roomId+"-"+clientMsg.Data.Uid] = c
 }
@@ -265,39 +257,12 @@ func findToUserCoonClient() interface{} {
 func notify(conn *websocket.Conn, msg string) {
 	chNotify <- 1 // 利用channel阻塞 避免并发去对同一个连接发送消息出现panic: concurrent write to websocket connection这样的异常
 
-	//ctx := context.Background()
-	//
-	//var (
-	//	cursor uint64
-	//)
-
 	for _, mapConn := range wsConnMap {
-
 		// 给除了自己以为的所有人广播
 		if mapConn.RemoteAddr().String() != conn.RemoteAddr().String() {
 			mapConn.WriteMessage(websocket.TextMessage, []byte(msg))
 		}
 	}
-
-	//for {
-	//	setValues, cursor, _ := redislib.GetRedisInstance().SScan(ctx, "room_set"+roomId, cursor, "*", 600).Result()
-	//
-	//	for _, uid := range setValues {
-	//
-	//		assignConn := wsConnMap[roomId+uid]
-	//		if assignConn != nil {
-	//			// 给除了自己以为的所有人广播
-	//			if assignConn.RemoteAddr().String() != conn.RemoteAddr().String() {
-	//				assignConn.WriteMessage(websocket.TextMessage, []byte(msg))
-	//			}
-	//		}
-	//
-	//	}
-	//
-	//	if cursor == 0 {
-	//		break
-	//	}
-	//}
 
 	<-chNotify
 }
@@ -305,6 +270,8 @@ func notify(conn *websocket.Conn, msg string) {
 // 离线通知
 func disconnect(conn *websocket.Conn) {
 	roomId, _ := getRoomId()
+
+	ctx := context.Background()
 
 	for key, mapConn := range wsConnMap {
 		uid := helper.Explode("-", key)[1]
@@ -324,12 +291,10 @@ func disconnect(conn *websocket.Conn) {
 
 			disMsg := string(serveMsgStr)
 			// 离线
-			//redislib.GetRedisInstance().HDel(ctx, "room_hset"+roomId, uid)
-			//redislib.GetRedisInstance().SRem(ctx, "room_set"+roomId, uid)
 			delete(wsConnMap, roomId+uid)
+			redislib.GetRedisInstance().SRem(ctx, "room_set"+roomId, uid)
 			notify(conn, disMsg)
 		}
-
 	}
 }
 

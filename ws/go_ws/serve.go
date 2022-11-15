@@ -50,6 +50,12 @@ type msg struct {
 	Conn   *websocket.Conn `json:"conn"`
 }
 
+type pingStorage struct {
+	Conn       *websocket.Conn `json:"conn"`
+	RemoteAddr string          `json:"remote_addr"`
+	Time       int64           `json:"time"`
+}
+
 // 变量定义初始化
 var (
 	wsUpgrader = websocket.Upgrader{}
@@ -68,6 +74,8 @@ var (
 	offline = make(chan *websocket.Conn)
 
 	chNotify = make(chan int, 1)
+
+	pingMap []interface{}
 )
 
 // 定义消息类型
@@ -112,6 +120,51 @@ func Run(gin *gin.Context) {
 
 }
 
+// HandelOfflineCoon 定时任务清理没有心跳的连接
+func HandelOfflineCoon() {
+
+	objColl := collection.NewObjCollection(pingMap)
+
+	retColl := objColl.Reject(func(obj interface{}, index int) bool {
+		nowTime := time.Now().Unix()
+		timeDiff := nowTime - obj.(pingStorage).Time
+		log.Println("timeDiff", nowTime, obj.(pingStorage).Time, timeDiff)
+		if timeDiff > 60 { // 超过 60s 没有心跳 主动断开连接
+			offline <- obj.(pingStorage).Conn
+			return true
+		}
+		return false
+	})
+
+	interfaces, _ := retColl.ToInterfaces()
+
+	pingMap = interfaces
+}
+
+func appendPing(c *websocket.Conn) {
+	objColl := collection.NewObjCollection(pingMap)
+
+	// 先删除相同的
+	retColl := objColl.Reject(func(obj interface{}, index int) bool {
+		if obj.(pingStorage).RemoteAddr == c.RemoteAddr().String() {
+			return true
+		}
+		return false
+	})
+
+	// 再追加
+	retColl.Append(pingStorage{
+		Conn:       c,
+		RemoteAddr: c.RemoteAddr().String(),
+		Time:       time.Now().Unix(),
+	})
+
+	interfaces, _ := retColl.ToInterfaces()
+
+	pingMap = interfaces
+
+}
+
 func read(c *websocket.Conn) {
 
 	defer func() {
@@ -135,6 +188,8 @@ func read(c *websocket.Conn) {
 
 		// 处理心跳响应 , heartbeat为与客户端约定的值
 		if string(serveMsgStr) == `heartbeat` {
+			appendPing(c)
+			log.Println(pingMap)
 			c.WriteMessage(websocket.TextMessage, []byte(`{"status":0,"data":"heartbeat ok"}`))
 			continue
 		}

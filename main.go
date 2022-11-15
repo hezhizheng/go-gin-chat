@@ -8,6 +8,7 @@ import (
 	"go-gin-chat/models"
 	"go-gin-chat/routes"
 	"go-gin-chat/views"
+	"go-gin-chat/ws/go_ws"
 	"log"
 	"net/http"
 )
@@ -39,6 +40,8 @@ func main() {
 
 	//加载模板文件
 	router.SetHTMLTemplate(views.GoTpl)
+
+	go_ws.CleanOfflineConn()
 
 	log.Println("监听端口", "http://127.0.0.1:"+port)
 

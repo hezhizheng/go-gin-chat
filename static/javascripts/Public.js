@@ -349,6 +349,7 @@ $(document).ready(function(){
 					"avatar_id": $('.room').attr('data-avatar_id'),
 					"room_id": $('.room').attr('data-room_id'),
 					"content": str,
+					"image_url" : "",
 					"to_uid" : to_uid,
 				}
 			})
@@ -453,7 +454,7 @@ $(document).ready(function(){
 			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
 		}
 	}
-	$('.text input').keypress(function(e) { 
+	$('.text input').keypress(function(e) {
 		if (e.which == 13){
 			$('#subxx').click();
 		}

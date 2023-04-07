@@ -7,6 +7,7 @@ import (
 	"github.com/jianfengye/collection"
 	"go-gin-chat/models"
 	"go-gin-chat/services/helper"
+	"go-gin-chat/services/safe"
 	"go-gin-chat/ws"
 	"log"
 	"net/http"
@@ -124,17 +125,18 @@ func Run(gin *gin.Context) {
 func HandelOfflineCoon() {
 
 	objColl := collection.NewObjCollection(pingMap)
-
-	retColl := objColl.Reject(func(obj interface{}, index int) bool {
-		nowTime := time.Now().Unix()
-		timeDiff := nowTime - obj.(pingStorage).Time
-		log.Println("timeDiff", nowTime, obj.(pingStorage).Time, timeDiff)
-		if timeDiff > 60 { // 超过 60s 没有心跳 主动断开连接
-			offline <- obj.(pingStorage).Conn
-			return true
-		}
-		return false
-	})
+	retColl := safe.Safety.Do(func() interface{} {
+		return objColl.Reject(func(obj interface{}, index int) bool {
+			nowTime := time.Now().Unix()
+			timeDiff := nowTime - obj.(pingStorage).Time
+			// log.Println("timeDiff", nowTime, obj.(pingStorage).Time, timeDiff)
+			if timeDiff > 60 { // 超过 60s 没有心跳 主动断开连接
+				offline <- obj.(pingStorage).Conn
+				return true
+			}
+			return false
+		})
+	}).(collection.ICollection)
 
 	interfaces, _ := retColl.ToInterfaces()
 
@@ -145,19 +147,23 @@ func appendPing(c *websocket.Conn) {
 	objColl := collection.NewObjCollection(pingMap)
 
 	// 先删除相同的
-	retColl := objColl.Reject(func(obj interface{}, index int) bool {
-		if obj.(pingStorage).RemoteAddr == c.RemoteAddr().String() {
-			return true
-		}
-		return false
-	})
+	retColl := safe.Safety.Do(func() interface{} {
+		return objColl.Reject(func(obj interface{}, index int) bool {
+			if obj.(pingStorage).RemoteAddr == c.RemoteAddr().String() {
+				return true
+			}
+			return false
+		})
+	}).(collection.ICollection)
 
 	// 再追加
-	retColl.Append(pingStorage{
-		Conn:       c,
-		RemoteAddr: c.RemoteAddr().String(),
-		Time:       time.Now().Unix(),
-	})
+	retColl = safe.Safety.Do(func() interface{} {
+		return retColl.Append(pingStorage{
+			Conn:       c,
+			RemoteAddr: c.RemoteAddr().String(),
+			Time:       time.Now().Unix(),
+		})
+	}).(collection.ICollection)
 
 	interfaces, _ := retColl.ToInterfaces()
 
@@ -189,8 +195,10 @@ func read(c *websocket.Conn) {
 		// 处理心跳响应 , heartbeat为与客户端约定的值
 		if string(serveMsgStr) == `heartbeat` {
 			appendPing(c)
-			log.Println(pingMap)
+			chNotify <- 1
+			// log.Println("heartbeat pingMap：", pingMap)
 			c.WriteMessage(websocket.TextMessage, []byte(`{"status":0,"data":"heartbeat ok"}`))
+			<-chNotify
 			continue
 		}
 
@@ -258,22 +266,28 @@ func handleConnClients(c *websocket.Conn) {
 
 	objColl := collection.NewObjCollection(rooms[roomIdInt])
 
-	retColl := objColl.Reject(func(item interface{}, key int) bool {
-		if item.(wsClients).Uid == clientMsg.Data.Uid {
-			item.(wsClients).Conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
-			return true
-		}
-		return false
-	})
+	retColl := safe.Safety.Do(func() interface{} {
+		return objColl.Reject(func(item interface{}, key int) bool {
+			if item.(wsClients).Uid == clientMsg.Data.Uid {
+				chNotify <- 1
+				item.(wsClients).Conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
+				<-chNotify
+				return true
+			}
+			return false
+		})
+	}).(collection.ICollection)
 
-	retColl.Append(wsClients{
-		Conn:       c,
-		RemoteAddr: c.RemoteAddr().String(),
-		Uid:        clientMsg.Data.Uid,
-		Username:   clientMsg.Data.Username,
-		RoomId:     roomId,
-		AvatarId:   clientMsg.Data.AvatarId,
-	})
+	retColl = safe.Safety.Do(func() interface{} {
+		return retColl.Append(wsClients{
+			Conn:       c,
+			RemoteAddr: c.RemoteAddr().String(),
+			Uid:        clientMsg.Data.Uid,
+			Username:   clientMsg.Data.Username,
+			RoomId:     roomId,
+			AvatarId:   clientMsg.Data.AvatarId,
+		})
+	}).(collection.ICollection)
 
 	interfaces, _ := retColl.ToInterfaces()
 
@@ -319,31 +333,33 @@ func disconnect(conn *websocket.Conn) {
 
 	objColl := collection.NewObjCollection(rooms[roomIdInt])
 
-	retColl := objColl.Reject(func(item interface{}, key int) bool {
-		if item.(wsClients).RemoteAddr == conn.RemoteAddr().String() {
+	retColl := safe.Safety.Do(func() interface{} {
+		return objColl.Reject(func(item interface{}, key int) bool {
+			if item.(wsClients).RemoteAddr == conn.RemoteAddr().String() {
 
-			data := msgData{
-				Username: item.(wsClients).Username,
-				Uid:      item.(wsClients).Uid,
-				Time:     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+				data := msgData{
+					Username: item.(wsClients).Username,
+					Uid:      item.(wsClients).Uid,
+					Time:     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+				}
+
+				jsonStrServeMsg := msg{
+					Status: msgTypeOffline,
+					Data:   data,
+				}
+				serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
+
+				disMsg := string(serveMsgStr)
+
+				item.(wsClients).Conn.Close()
+
+				notify(conn, disMsg)
+
+				return true
 			}
-
-			jsonStrServeMsg := msg{
-				Status: msgTypeOffline,
-				Data:   data,
-			}
-			serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
-
-			disMsg := string(serveMsgStr)
-
-			item.(wsClients).Conn.Close()
-
-			notify(conn, disMsg)
-
-			return true
-		}
-		return false
-	})
+			return false
+		})
+	}).(collection.ICollection)
 
 	interfaces, _ := retColl.ToInterfaces()
 	rooms[roomIdInt] = interfaces

@@ -113,11 +113,17 @@ func Run(gin *gin.Context) {
 	c, _ := wsUpgrader.Upgrade(gin.Writer, gin.Request, nil)
 
 	defer c.Close()
+	done := make(chan struct{})
 
-	go read(c)
-	go write()
+	go read(c, done)
+	go write(done)
 
-	select {}
+	for {
+		select {
+		case <-done:
+			return
+		}
+	}
 
 }
 
@@ -171,7 +177,7 @@ func appendPing(c *websocket.Conn) {
 
 }
 
-func read(c *websocket.Conn) {
+func read(c *websocket.Conn, done chan<- struct{}) {
 
 	defer func() {
 		//捕获read抛出的panic
@@ -187,6 +193,8 @@ func read(c *websocket.Conn) {
 		if err != nil { // 离线通知
 			offline <- c
 			log.Println("ReadMessage error1", err)
+			c.Close()
+			close(done)
 			return
 		}
 
@@ -224,7 +232,7 @@ func read(c *websocket.Conn) {
 	}
 }
 
-func write() {
+func write(done <-chan struct{}) {
 
 	defer func() {
 		//捕获write抛出的panic
@@ -236,6 +244,8 @@ func write() {
 
 	for {
 		select {
+		case <-done: // 当 done 通道关闭时，退出 write 函数
+			return
 		case r := <-enterRooms:
 			handleConnClients(r.Conn)
 		case cl := <-sMsg:
@@ -292,10 +302,6 @@ func handleConnClients(c *websocket.Conn) {
 	interfaces, _ := retColl.ToInterfaces()
 
 	rooms[roomIdInt] = interfaces
-
-	//mutex.Lock()
-
-	//mutex.Unlock()
 }
 
 // 获取私聊的用户连接

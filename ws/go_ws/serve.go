@@ -118,12 +118,13 @@ func Run(gin *gin.Context) {
 	go read(c, done)
 	go write(done)
 
-	for {
-		select {
-		case <-done:
-			return
-		}
-	}
+	//for {
+	//	select {
+	//	case <-done:
+	//		return
+	//	}
+	//}
+	select {}
 
 }
 

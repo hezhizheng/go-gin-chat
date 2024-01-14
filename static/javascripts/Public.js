@@ -44,8 +44,14 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 		})
 
 		ws.onopen = function () {
+			// layer.msg("websocket 连接已建立");
+			chat_info.html(chat_info.html() +
+				'<li class="systeminfo" > <span>' +
+				"✅ websocket 连接已建立 " +
+				'</span></li>');
 			ws.send(send_data);
 			//console.log("send_data 发送数据", send_data)
+			toLow();
 		};
 
 		// if ( toUserInfo )
@@ -68,6 +74,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 
 
 		let chat_info = $('.main .chat_info')
+		let isServeClose = 0;
 
 		ws.onmessage = function (evt) {
 			var received_msg = JSON.parse(evt.data);
@@ -115,6 +122,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					break;
 				case -1:
 					ws.close() // 主动close掉
+					isServeClose = 1
 					console.log("client 连接已关闭...");
 					break;
 				case 4:
@@ -157,22 +165,38 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 				default:
 			}
 			//console.log("数据已接收...", received_msg);
+
+			// 滚动条滚到最下面
+			toLow();
+
 		};
 
-		ws.onclose = function () {
+		ws.onclose = function (evt) {
 			// 关闭 websocket
-			chat_info.html(chat_info.html() +
-				'<li class="systeminfo"> <span>' +
-				"与服务器连接断开，请刷新页面重试" +
-				'</span></li>');
+			if ( isServeClose === 1 ){
+				chat_info.html(chat_info.html() +
+					'<li class="systeminfo"> <span>' +
+					"❌ 与服务器连接断开，请检查是否在浏览器中打开了多个聊天界面" +
+					'</span></li>');
+			}else{
+				chat_info.html(chat_info.html() +
+					'<li class="systeminfo"> <span>' +
+					"❌ 与服务器连接断开，正在尝试重新连接，请稍后..." +
+					'</span></li>');
+			}
 			// let c = ws.close() // 主动close掉
-			console.log("serve 连接已关闭... " + _time());
+			console.log("serve 连接已关闭... " + _time(),evt);
 			// console.log(c);
+			toLow();
 		};
 		
 		ws.onerror = function (evt) {
-			ws.close()
+			// ws.close()
 			console.log("触发 onerror",evt)
+		}
+
+		ws.onreconnect = (e) => {
+			console.log('reconnecting...');
 		}
 		
 	} else {
@@ -184,6 +208,11 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 $(document).ready(function(){
 // ------------------------选择聊天室页面-----------------------------------------------
 
+	// 在页面即将卸载之前关闭WebSocket连接
+	window.addEventListener("beforeunload", function() {
+		console.log("beforeunload close");
+		ws.close();
+	});
 	// 用户信息提交
 
 	$('#userinfo_sub').click(function(event) {
@@ -304,9 +333,7 @@ $(document).ready(function(){
 
 
 			// 滚动条滚到最下面
-			$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
-				scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
-			}, 500);
+			toLow();
 
 			// 解决input上传文件选择同一文件change事件不生效
 			event.target.value=''
@@ -357,9 +384,7 @@ $(document).ready(function(){
 			ws.send(send_data);
 
 			// 滚动条滚到最下面
-			$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
-				scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
-			}, 500);
+			toLow();
 
 		}
 
@@ -487,6 +512,12 @@ function getQueryVariable(variable)
 function isPrivateChat()
 {
 	return window.location.href.search('private-chat') > 0
+}
+
+function toLow() {
+	$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
+		scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
+	}, 500);
 }
 
 

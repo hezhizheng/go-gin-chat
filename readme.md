@@ -6,12 +6,12 @@
 
 > [github地址](https://github.com/hezhizheng/go-gin-chat)
 
-## feature
+## Feature
 - 登录/注册(防止重复登录)
 - 群聊(多房间、支持文字、emoji、文件(图片)上传，使用 [freeimage.host](https://freeimage.host/) 做图床 )
 - 私聊(消息提醒)
 - 历史消息查看(点击加载更多)
-- 心跳检测，来自 https://github.com/zimv/websocket-heartbeat-js
+- 心跳检测及自动重连机制，来自 https://github.com/zimv/websocket-heartbeat-js
 - go mod 包管理
 - 使用 Golang 1.16 embed 内嵌静态资源(html、js、css等)，运行只依赖编译好的可执行文件与mysql
 - 支持 http/ws 、 https/wss
@@ -244,7 +244,7 @@ gox -osarch="linux/amd64" -ldflags "-s -w" -gcflags="all=-trimpath=${PWD}" -asmf
 ```
 
 
-## todo
+## TODO
 - [x] 心跳机制
 - [x] 多频道聊天
 - [x] 私聊

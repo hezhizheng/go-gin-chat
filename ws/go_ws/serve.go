@@ -77,6 +77,9 @@ var (
 	chNotify = make(chan int, 1)
 
 	pingMap []interface{}
+
+	clientMsgLock = sync.Mutex{}
+	clientMsgData = clientMsg // 临时存储 clientMsg 数据
 )
 
 // 定义消息类型
@@ -199,10 +202,8 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 			return
 		}
 
-		serveMsgStr := message
-
 		// 处理心跳响应 , heartbeat为与客户端约定的值
-		if string(serveMsgStr) == `heartbeat` {
+		if string(message) == `heartbeat` {
 			appendPing(c)
 			chNotify <- 1
 			// log.Println("heartbeat pingMap：", pingMap)
@@ -211,7 +212,12 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 			continue
 		}
 
-		json.Unmarshal(message, &clientMsg)
+		json.Unmarshal(message, &clientMsgData)
+
+		clientMsgLock.Lock()
+		clientMsg = clientMsgData
+		clientMsgLock.Unlock()
+
 		//fmt.Println("来自客户端的消息", clientMsg, c.RemoteAddr())
 		if clientMsg.Data.Uid != "" {
 			if clientMsg.Status == msgTypeOnline { // 进入房间，建立连接

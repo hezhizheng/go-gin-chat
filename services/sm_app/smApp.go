@@ -89,6 +89,8 @@ func Upload(uploadFile string) string {
 		if _, set := res["data"].(map[string]interface{})["url"]; set {
 			return res["data"].(map[string]interface{})["url"].(string)
 		}
+	} else if _, set := res["images"]; set { // 图片已存在
+		return res["images"].(string)
 	} else {
 		log.Println(res)
 	}

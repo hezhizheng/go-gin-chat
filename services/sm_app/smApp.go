@@ -70,7 +70,7 @@ func Upload(uploadFile string) string {
 	request.SetBody(bodyBufer.Bytes())
 	request.Header.SetMethod("POST")
 
-	request.SetRequestURI("https://smms.app/api/v2/upload")
+	request.SetRequestURI("https://sm.ms/api/v2/upload")
 	err4 := fasthttp.Do(request, response)
 	if err4 != nil {
 		log.Println(err4)

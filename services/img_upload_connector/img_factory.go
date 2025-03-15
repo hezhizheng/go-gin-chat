@@ -13,5 +13,5 @@ var serveMap = map[string]services.ImgUploadInterface{
 }
 
 func ImgCreate() services.ImgUploadInterface {
-	return serveMap["sm"]
+	return serveMap["fi"]
 }

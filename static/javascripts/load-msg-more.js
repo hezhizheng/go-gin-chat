@@ -1,6 +1,7 @@
 $(document).ready(function(){
 
-    $("#chat-list-li-top").click(function (){
+    $(document).on('click', '#chat-list-li-top', function() {
+    // $("#chat-list-li-top").click(function (){
         let offset = $("#hidden-chat-list-li-top").attr("data-offset")
         let room_id = $('.room').attr('data-room_id')
         let uid = getURLParam('uid')

@@ -1,9 +1,8 @@
-package sm_app
+package img_bb
 
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/spf13/viper"
 	"github.com/valyala/fasthttp"
 	"go-gin-chat/services"
 	"io"
@@ -13,11 +12,11 @@ import (
 	"path"
 )
 
-type SmAppService struct {
+type ImgBBImageService struct {
 	services.ImgUploadInterface
 }
 
-func (serve *SmAppService) Upload(filename string) string {
+func (serve *ImgBBImageService) Upload(filename string) string {
 	return Upload(filename)
 }
 
@@ -26,10 +25,10 @@ func Upload(uploadFile string) string {
 	bodyBufer := &bytes.Buffer{}
 	//创建一个multipart文件写入器，方便按照http规定格式写入内容
 	bodyWriter := multipart.NewWriter(bodyBufer)
-	//bodyWriter.WriteField("type", "file")
-	bodyWriter.WriteField("format", "json")
+	bodyWriter.WriteField("type", "file")
+	bodyWriter.WriteField("action", "upload")
 	//从bodyWriter生成fileWriter,并将文件内容写入fileWriter,多个文件可进行多次
-	fileWriter, err := bodyWriter.CreateFormFile("smfile", path.Base(uploadFile))
+	fileWriter, err := bodyWriter.CreateFormFile("source", path.Base(uploadFile))
 
 	if err != nil {
 		log.Println(err)
@@ -64,13 +63,11 @@ func Upload(uploadFile string) string {
 	}()
 
 	request.Header.SetContentType(contentType)
-	smToken := viper.GetString(`app.sm_token`)
-	request.Header.Set("Authorization", smToken)
 	//直接将构建好的数据放入post的body中
 	request.SetBody(bodyBufer.Bytes())
 	request.Header.SetMethod("POST")
 
-	request.SetRequestURI("https://smms.app/api/v2/upload")
+	request.SetRequestURI("https://imgbb.com/json")
 	err4 := fasthttp.Do(request, response)
 	if err4 != nil {
 		log.Println(err4)
@@ -84,13 +81,11 @@ func Upload(uploadFile string) string {
 		return ""
 	}
 
-	if _, ok := res["data"]; ok {
+	if _, ok := res["image"]; ok {
 		// process q
-		if _, set := res["data"].(map[string]interface{})["url"]; set {
-			return res["data"].(map[string]interface{})["url"].(string)
+		if _, set := res["image"].(map[string]interface{})["display_url"]; set {
+			return res["image"].(map[string]interface{})["display_url"].(string)
 		}
-	} else if _, set := res["images"]; set { // 图片已存在
-		return res["images"].(string)
 	} else {
 		log.Println(res)
 	}

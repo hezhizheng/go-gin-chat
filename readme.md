@@ -9,7 +9,7 @@
 ## Feature
 - 登录/注册(防止重复登录)
 - 群聊(多房间、支持文字、emoji、文件(图片)上传，使用 ~~[freeimage.host](https://freeimage.host/)~~ 做图床 )
-  - freeimage.host 不同地区可能会被墙，可选使用 smms.app / sm.ms 做图床
+  - 图片使用多个图床依次上传，防止被墙，sm.ms做兜底。 
 - 私聊(消息提醒)
 - 历史消息查看(点击加载更多)
 - 心跳检测及自动重连机制，来自 https://github.com/zimv/websocket-heartbeat-js

@@ -296,6 +296,23 @@ $(document).ready(function(){
 		$.ajax({
 			url: '/img-kr-upload',
 			type: 'POST',
+			beforeSend: function (xhr) {
+				// 在请求发送之前执行的代码
+				console.log('请求即将发送');
+
+				// 在请求发送之前调用 layer 的加载动画
+				var index = layer.load(1, { // 1 是加载动画的样式，layer 提供了多种样式
+					shade: [0.5, '#000'], // 遮罩层颜色和透明度
+					time: 25000, // 最大显示时间（毫秒），超过此时间自动关闭
+					success: function(layero, index) {
+						// 加载动画加载完成时的回调
+						console.log('加载动画已显示');
+					}
+				});
+				// 将加载动画的索引存储到全局变量或闭包中，方便后续关闭
+				window.layerIndex = index;
+
+			},
 			cache: false,
 			data: formData,
 			processData: false,
@@ -337,6 +354,8 @@ $(document).ready(function(){
 
 			// 解决input上传文件选择同一文件change事件不生效
 			event.target.value=''
+
+			layer.close(window.layerIndex);
 		}).fail(function(res) {});
 
 

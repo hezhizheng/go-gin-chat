@@ -31,7 +31,13 @@ func ImgKrUpload(c *gin.Context) {
 		return
 	}
 
-	krUpload := img_upload_connector.ImgCreate().Upload(filename)
+	krUpload := img_upload_connector.ImgCreate("").Upload(filename)
+	if krUpload == "" {
+		krUpload = img_upload_connector.ImgCreate("fi").Upload(filename)
+	}
+	if krUpload == "" {
+		krUpload = img_upload_connector.ImgCreate("sm").Upload(filename)
+	}
 
 	// 删除临时图片
 	os.Remove(filename)

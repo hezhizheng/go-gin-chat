@@ -2,9 +2,6 @@ package go_ws
 
 import (
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
-	"github.com/jianfengye/collection"
 	"go-gin-chat/models"
 	"go-gin-chat/services/helper"
 	"go-gin-chat/services/safe"
@@ -14,6 +11,10 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/jianfengye/collection"
 )
 
 // 客户端连接详情
@@ -215,24 +216,28 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 
 		clientMsgLock.Lock()
 		clientMsg = clientMsgData
+		// 保存需要使用的字段到局部变量
+		dataUid := clientMsg.Data.Uid
+		status := clientMsg.Status
+		dataUsername := clientMsg.Data.Username
+		dataAvatarId := clientMsg.Data.AvatarId
+		dataRoomId := clientMsg.Data.RoomId
 		clientMsgLock.Unlock()
 
 		//fmt.Println("来自客户端的消息", clientMsg, c.RemoteAddr())
-		if clientMsg.Data.Uid != "" {
-			if clientMsg.Status == msgTypeOnline { // 进入房间，建立连接
-				roomId, _ := getRoomId()
-
+		if dataUid != "" {
+			if status == msgTypeOnline { // 进入房间，建立连接
 				enterRooms <- wsClients{
 					Conn:       c,
 					RemoteAddr: c.RemoteAddr().String(),
-					Uid:        clientMsg.Data.Uid,
-					Username:   clientMsg.Data.Username,
-					RoomId:     roomId,
-					AvatarId:   clientMsg.Data.AvatarId,
+					Uid:        dataUid,
+					Username:   dataUsername,
+					RoomId:     dataRoomId,
+					AvatarId:   dataAvatarId,
 				}
 			}
 
-			_, serveMsg := formatServeMsgStr(clientMsg.Status, c)
+			_, serveMsg := formatServeMsgStr(status, c)
 			sMsg <- serveMsg
 		}
 	}
@@ -278,13 +283,21 @@ func write(done <-chan struct{}) {
 }
 
 func handleConnClients(c *websocket.Conn) {
-	roomId, roomIdInt := getRoomId()
+	// 读取clientMsg需要加锁
+	clientMsgLock.Lock()
+	uid := clientMsg.Data.Uid
+	username := clientMsg.Data.Username
+	avatarId := clientMsg.Data.AvatarId
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	roomIdInt, _ := strconv.Atoi(roomId)
 
 	objColl := collection.NewObjCollection(rooms[roomIdInt])
 
 	retColl := safe.Safety.Do(func() interface{} {
 		return objColl.Reject(func(item interface{}, key int) bool {
-			if item.(wsClients).Uid == clientMsg.Data.Uid {
+			if item.(wsClients).Uid == uid {
 				chNotify <- 1
 				item.(wsClients).Conn.WriteMessage(websocket.TextMessage, []byte(`{"status":-1,"data":[]}`))
 				<-chNotify
@@ -298,10 +311,10 @@ func handleConnClients(c *websocket.Conn) {
 		return retColl.Append(wsClients{
 			Conn:       c,
 			RemoteAddr: c.RemoteAddr().String(),
-			Uid:        clientMsg.Data.Uid,
-			Username:   clientMsg.Data.Username,
+			Uid:        uid,
+			Username:   username,
 			RoomId:     roomId,
-			AvatarId:   clientMsg.Data.AvatarId,
+			AvatarId:   avatarId,
 		})
 	}).(collection.ICollection)
 
@@ -312,9 +325,14 @@ func handleConnClients(c *websocket.Conn) {
 
 // 获取私聊的用户连接
 func findToUserCoonClient() interface{} {
-	_, roomIdInt := getRoomId()
-
+	// 读取clientMsg需要加锁
+	clientMsgLock.Lock()
 	toUserUid := clientMsg.Data.ToUid
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	roomIdInt, _ := strconv.Atoi(roomId)
+
 	assignRoom := rooms[roomIdInt]
 	for _, c := range assignRoom {
 		stringUid := c.(wsClients).Uid
@@ -329,7 +347,12 @@ func findToUserCoonClient() interface{} {
 // 统一消息发放
 func notify(conn *websocket.Conn, msg string) {
 	chNotify <- 1 // 利用channel阻塞 避免并发去对同一个连接发送消息出现panic: concurrent write to websocket connection这样的异常
-	_, roomIdInt := getRoomId()
+	// 读取clientMsg需要加锁
+	clientMsgLock.Lock()
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	roomIdInt, _ := strconv.Atoi(roomId)
 	assignRoom := rooms[roomIdInt]
 	for _, con := range assignRoom {
 		if con.(wsClients).RemoteAddr != conn.RemoteAddr().String() {
@@ -394,21 +417,31 @@ func disconnect(conn *websocket.Conn) {
 
 // 格式化传送给客户端的消息数据
 func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
+	// 读取clientMsg需要加锁
+	clientMsgLock.Lock()
+	// 将需要使用的字段复制到局部变量
+	username := clientMsg.Data.Username
+	uid := clientMsg.Data.Uid
+	roomId := clientMsg.Data.RoomId
+	avatarId := clientMsg.Data.AvatarId
+	content := clientMsg.Data.Content
+	toUidStr := clientMsg.Data.ToUid
+	imageUrl := clientMsg.Data.ImageUrl
+	clientMsgLock.Unlock()
 
-	roomId, roomIdInt := getRoomId()
+	roomIdInt, _ := strconv.Atoi(roomId)
 
 	//log.Println(reflect.TypeOf(var))
 
 	data := msgData{
-		Username: clientMsg.Data.Username,
-		Uid:      clientMsg.Data.Uid,
+		Username: username,
+		Uid:      uid,
 		RoomId:   roomId,
 		Time:     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
 	}
 
 	if status == msgTypeSend || status == msgTypePrivateChat {
-		data.AvatarId = clientMsg.Data.AvatarId
-		content := clientMsg.Data.Content
+		data.AvatarId = avatarId
 
 		data.Content = content
 		if helper.MbStrLen(content) > 800 {
@@ -416,21 +449,19 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 			data.Content = string([]rune(content)[:800])
 		}
 
-		toUidStr := clientMsg.Data.ToUid
 		toUid, _ := strconv.Atoi(toUidStr)
 
 		// 保存消息
-		stringUid := data.Uid
-		intUid, _ := strconv.Atoi(stringUid)
+		intUid, _ := strconv.Atoi(uid)
 
-		if clientMsg.Data.ImageUrl != "" {
+		if imageUrl != "" {
 			// 存在图片
 			models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
-				"image_url":  clientMsg.Data.ImageUrl,
+				"image_url":  imageUrl,
 			})
 		} else {
 			models.SaveContent(map[string]interface{}{
@@ -460,7 +491,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 }
 
 func getRoomId() (string, int) {
+	// 读取clientMsg需要加锁
+	clientMsgLock.Lock()
 	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
 
 	roomIdInt, _ := strconv.Atoi(roomId)
 	return roomId, roomIdInt

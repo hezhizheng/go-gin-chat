@@ -164,10 +164,12 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					break;
 				default:
 			}
-			//console.log("数据已接收...", received_msg);
+			// console.log("数据已接收...", received_msg);
 
-			// 滚动条滚到最下面
-			toLow();
+            if ( !(received_msg.data === "heartbeat ok") ){
+                // 滚动条滚到最下面
+                toLow();
+            }
 
 		};
 

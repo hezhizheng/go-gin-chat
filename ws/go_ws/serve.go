@@ -113,7 +113,11 @@ func Run(gin *gin.Context) {
 	// @see https://github.com/gorilla/websocket/issues/523
 	wsUpgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
-	c, _ := wsUpgrader.Upgrade(gin.Writer, gin.Request, nil)
+	c, err := wsUpgrader.Upgrade(gin.Writer, gin.Request, nil)
+	if err != nil {
+		log.Println("WebSocket upgrade error:", err)
+		return
+	}
 
 	defer c.Close()
 	done := make(chan struct{})
@@ -121,13 +125,8 @@ func Run(gin *gin.Context) {
 	go read(c, done)
 	go write(done)
 
-	//for {
-	//	select {
-	//	case <-done:
-	//		return
-	//	}
-	//}
-	select {}
+	// 等待 done 信号，确保连接断开后 goroutine 能正确退出
+	<-done
 
 }
 
@@ -342,6 +341,7 @@ func notify(conn *websocket.Conn, msg string) {
 
 // 离线通知
 func disconnect(conn *websocket.Conn) {
+	// 从 rooms 中移除客户端
 	_, roomIdInt := getRoomId()
 
 	objColl := collection.NewObjCollection(rooms[roomIdInt])
@@ -376,6 +376,20 @@ func disconnect(conn *websocket.Conn) {
 
 	interfaces, _ := retColl.ToInterfaces()
 	rooms[roomIdInt] = interfaces
+
+	// 从 pingMap 中移除客户端，避免内存泄漏
+	objCollPing := collection.NewObjCollection(pingMap)
+	retCollPing := safe.Safety.Do(func() interface{} {
+		return objCollPing.Reject(func(obj interface{}, index int) bool {
+			if obj.(pingStorage).RemoteAddr == conn.RemoteAddr().String() {
+				return true
+			}
+			return false
+		})
+	}).(collection.ICollection)
+
+	pingInterfaces, _ := retCollPing.ToInterfaces()
+	pingMap = pingInterfaces
 }
 
 // 格式化传送给客户端的消息数据

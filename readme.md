@@ -6,6 +6,11 @@
 
 > [github地址](https://github.com/hezhizheng/go-gin-chat)
 
+## 🚀 广告
+自用机场推荐,不贵、稳定、晚高峰不卡 [TaiShan Net](https://jp.taishan.pro/register?code=sy3Mfx19)
+
+![xxx](https://i.ibb.co/5xB4Hp1V/Pix-Pin-2026-03-03-00-26-53.jpg)
+
 ## Feature
 - 登录/注册(防止重复登录)
 - 群聊(多房间、支持文字、emoji、文件(图片)上传，使用 ~~[freeimage.host](https://freeimage.host/)~~ 做图床 )

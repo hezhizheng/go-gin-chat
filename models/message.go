@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"gorm.io/gorm"
 	"sort"
 	"strconv"
@@ -9,14 +10,15 @@ import (
 
 type Message struct {
 	gorm.Model
-	ID        uint
-	UserId    int
-	ToUserId  int
-	RoomId    int
-	Content   string
-	ImageUrl  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uint
+	UserId     int
+	ToUserId   int
+	RoomId     int
+	Content    string
+	ImageUrl   string
+	IsRecalled int       // 是否撤回 0-未撤回 1-已撤回
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func SaveContent(value interface{}) Message {
@@ -84,4 +86,33 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 	}
 
 	return results
+}
+
+// RecallMessage 撤回消息
+func RecallMessage(msgId uint, userId int) error {
+	var msg Message
+	result := ChatDB.First(&msg, msgId)
+	if result.Error != nil {
+		return result.Error
+	}
+	// 验证是否是消息发送者
+	if msg.UserId != userId {
+		return fmt.Errorf("无权撤回他人消息")
+	}
+	// 验证是否在2分钟内
+	if time.Since(msg.CreatedAt) > 2*time.Minute {
+		return fmt.Errorf("消息超过2分钟，无法撤回")
+	}
+	// 更新撤回状态
+	msg.IsRecalled = 1
+	msg.Content = ""
+	msg.ImageUrl = ""
+	return ChatDB.Save(&msg).Error
+}
+
+// GetMessageById 根据ID获取消息
+func GetMessageById(msgId uint) (Message, error) {
+	var msg Message
+	result := ChatDB.First(&msg, msgId)
+	return msg, result.Error
 }

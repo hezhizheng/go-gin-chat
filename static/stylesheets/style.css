@@ -282,6 +282,13 @@ ul{
 	max-width: 100%;
 	max-height: 250px;
 }
+.room .chat_info div.recalled{
+	background-color: #f0f0f0;
+	color: #999;
+	font-style: italic;
+	padding: 5px 10px;
+	border-radius: 3px;
+}
 .room .chat_info .left{
 	text-align: left;
 }

@@ -9,14 +9,15 @@ import (
 
 type Message struct {
 	gorm.Model
-	ID        uint
-	UserId    int
-	ToUserId  int
-	RoomId    int
-	Content   string
-	ImageUrl  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uint
+	UserId     int
+	ToUserId   int
+	RoomId     int
+	Content    string
+	ImageUrl   string
+	IsWithdrawn bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func SaveContent(value interface{}) Message {
@@ -24,6 +25,7 @@ func SaveContent(value interface{}) Message {
 	m.UserId = value.(map[string]interface{})["user_id"].(int)
 	m.ToUserId = value.(map[string]interface{})["to_user_id"].(int)
 	m.Content = value.(map[string]interface{})["content"].(string)
+	m.IsWithdrawn = false
 
 	roomIdStr := value.(map[string]interface{})["room_id"].(string)
 
@@ -84,4 +86,27 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 	}
 
 	return results
+}
+
+func WithdrawMessage(messageId uint, userId int) bool {
+	var message Message
+	result := ChatDB.First(&message, messageId)
+	if result.Error != nil {
+		return false
+	}
+
+	// 检查是否是消息的发送者
+	if message.UserId != userId {
+		return false
+	}
+
+	// 检查是否在2分钟内
+	if time.Since(message.CreatedAt) > 2*time.Minute {
+		return false
+	}
+
+	// 更新消息为已撤回
+	message.IsWithdrawn = true
+	ChatDB.Save(&message)
+	return true
 }

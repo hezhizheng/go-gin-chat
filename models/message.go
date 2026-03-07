@@ -15,6 +15,7 @@ type Message struct {
 	RoomId    int
 	Content   string
 	ImageUrl  string
+	IsRecalled bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -84,4 +85,30 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 	}
 
 	return results
+}
+
+func RecallMessage(messageId uint, userId int) error {
+	var message Message
+	err := ChatDB.Where("id = ? AND user_id = ?", messageId, userId).First(&message).Error
+	if err != nil {
+		return err
+	}
+
+	if message.IsRecalled {
+		return nil
+	}
+
+	timeDiff := time.Since(message.CreatedAt)
+	if timeDiff.Minutes() > 2 {
+		return nil
+	}
+
+	ChatDB.Model(&message).Update("is_recalled", true)
+	return nil
+}
+
+func GetMessageById(messageId uint) (Message, error) {
+	var message Message
+	err := ChatDB.Where("id = ?", messageId).First(&message).Error
+	return message, err
 }

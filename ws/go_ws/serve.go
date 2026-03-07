@@ -33,16 +33,17 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid       string        `json:"uid"`
+	Username  string        `json:"username"`
+	AvatarId  string        `json:"avatar_id"`
+	ToUid     string        `json:"to_uid"`
+	Content   string        `json:"content"`
+	ImageUrl  string        `json:"image_url"`
+	RoomId    string        `json:"room_id"`
+	Count     int           `json:"count"`
+	List      []interface{} `json:"list"`
+	Time      int64         `json:"time"`
+	MessageId uint          `json:"message_id"`
 }
 
 // client & serve 的消息体
@@ -89,6 +90,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -262,7 +264,7 @@ func write(done <-chan struct{}) {
 		case cl := <-sMsg:
 			serveMsgStr, _ := json.Marshal(cl)
 			switch cl.Status {
-			case msgTypeOnline, msgTypeSend:
+			case msgTypeOnline, msgTypeSend, msgTypeRecall:
 				notify(cl.Conn, string(serveMsgStr))
 			case msgTypeGetOnlineUser:
 				chNotify <- 1
@@ -427,11 +429,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	content := clientMsg.Data.Content
 	toUidStr := clientMsg.Data.ToUid
 	imageUrl := clientMsg.Data.ImageUrl
+	messageId := clientMsg.Data.MessageId
 	clientMsgLock.Unlock()
 
 	roomIdInt, _ := strconv.Atoi(roomId)
-
-	//log.Println(reflect.TypeOf(var))
 
 	data := msgData{
 		Username: username,
@@ -442,21 +443,17 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 
 	if status == msgTypeSend || status == msgTypePrivateChat {
 		data.AvatarId = avatarId
-
 		data.Content = content
 		if helper.MbStrLen(content) > 800 {
-			// 直接截断
 			data.Content = string([]rune(content)[:800])
 		}
 
 		toUid, _ := strconv.Atoi(toUidStr)
-
-		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
-			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,14 +461,20 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
+		data.MessageId = savedMsg.ID
+	}
 
+	if status == msgTypeRecall {
+		data.MessageId = messageId
+		intUid, _ := strconv.Atoi(uid)
+		models.RecallMessage(messageId, intUid)
 	}
 
 	if status == msgTypeGetOnlineUser {

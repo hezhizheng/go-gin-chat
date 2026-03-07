@@ -6,7 +6,7 @@
     <title>go-gin-chat 聊天室</title>
     <link rel="stylesheet" href="//s2.pstatp.com/cdn/expire-1-M/twitter-bootstrap/3.3.5/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/rolling/css/rolling.css">
-    <link rel="stylesheet" href="/static/stylesheets/style.css">
+    <link rel="stylesheet" href="/static/stylesheets/style.css?v=3">
     <link rel="stylesheet" href="/static/emoji/emojionearea.min.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
 </head>
@@ -65,30 +65,33 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}" data-created-at="{{ .created_at }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
                             {{ if eq .image_url $nullSrl }}
 
-                            <div>{{ .content }}</div>
+                            <div class="msg-content {{if .is_recalled}}recalled{{end}}">{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            <div class="msg-content {{if .is_recalled}}recalled{{end}}"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                            {{if not .is_recalled}}
+                            <span class="recall-btn" onclick="recallMessage({{ .id }}, '{{ .created_at }}')">撤回</span>
+                            {{end}}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
                             {{ if eq .image_url $nullSrl }}
 
-                                <div>{{ .content }}</div>
+                                <div class="msg-content {{if .is_recalled}}recalled{{end}}">{{ .content }}</div>
                             {{else}}
-                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                <div class="msg-content {{if .is_recalled}}recalled{{end}}"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                             {{end}}
                         </li>
 
@@ -128,10 +131,10 @@
 <script type="text/javascript" src="//s2.pstatp.com/cdn/expire-1-M/twitter-bootstrap/3.3.5/js/bootstrap.min.js"></script>
 <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
 <script type="text/javascript" src="/static/javascripts/websocket-heartbeat.js"></script>
-<script type="text/javascript" src="/static/javascripts/Public.js?t=312455345"></script>
+<script type="text/javascript" src="/static/javascripts/Public.js?v=4"></script>
 <script type="text/javascript" src="/static/emoji/emojionearea.min.js"></script>
 <script type="text/javascript" src="//s2.pstatp.com/cdn/expire-1-M/layer/3.1.1/layer.min.js"></script>
-<script type="text/javascript" src="/static/javascripts/load-msg-more.js?t=2"></script>
+<script type="text/javascript" src="/static/javascripts/load-msg-more.js?v=3"></script>
 
 <script>
 
@@ -148,7 +151,105 @@
 
         // 滚动到底部
         toLow();
+
+        // 检查并隐藏超过2分钟的撤回按钮
+        checkRecallButtons();
+        setInterval(checkRecallButtons, 10000); // 每10秒检查一次
     });
+
+    // 检查撤回按钮是否应该显示
+    function checkRecallButtons() {
+        $('.right[data-msg-id]').each(function() {
+            let createdAt = $(this).attr('data-created-at');
+            if (createdAt && !isWithinRecallTime(createdAt)) {
+                $(this).find('.recall-btn').hide();
+            }
+        });
+    }
+
+    // 判断是否在2分钟内
+    function isWithinRecallTime(createdAt) {
+        let msgTime = new Date(createdAt).getTime();
+        let now = new Date().getTime();
+        return (now - msgTime) < 2 * 60 * 1000; // 2分钟
+    }
+
+    // 撤回消息
+    function recallMessage(messageId, createdAt) {
+        // 确保 messageId 是数字
+        var numericMessageId = parseInt(messageId);
+        if (isNaN(numericMessageId)) {
+            layer.msg('消息ID无效');
+            return;
+        }
+
+        if (!isWithinRecallTime(createdAt)) {
+            layer.msg('消息发送超过2分钟，无法撤回');
+            return;
+        }
+
+        layer.confirm('确定要撤回这条消息吗？', {
+            btn: ['确定', '取消']
+        }, function(index) {
+            layer.close(index);
+            $.ajax({
+                url: '/recall-message',
+                type: 'POST',
+                data: {
+                    message_id: numericMessageId
+                },
+                success: function(res) {
+                    if (res.code === 0) {
+                        // 通过WebSocket通知其他客户端
+                        let send_data = JSON.stringify({
+                            "status": 6,
+                            "data": {
+                                "uid": $('.room').attr('data-uid').toString(),
+                                "username": $('.room').attr('data-username'),
+                                "avatar_id": $('.room').attr('data-avatar_id'),
+                                "room_id": $('.room').attr('data-room_id'),
+                                "content": numericMessageId.toString(),
+                            }
+                        });
+                        ws.send(send_data);
+
+                        // 本地更新UI
+                        updateRecalledMessage(numericMessageId);
+                        layer.msg('消息已撤回');
+                    } else {
+                        layer.msg(res.msg || '撤回失败');
+                    }
+                },
+                error: function() {
+                    layer.msg('网络错误，请重试');
+                }
+            });
+        });
+    }
+
+    // 更新已撤回消息的UI
+    function updateRecalledMessage(messageId) {
+        let msgLi = $('li[data-msg-id="' + messageId + '"]');
+        if (msgLi.length > 0) {
+            msgLi.find('.msg-content').addClass('recalled').text('消息已撤回');
+            msgLi.find('.recall-btn').remove();
+        }
+    }
+
+    // 撤回临时消息（服务器还未返回真实ID的消息）
+    function recallTempMessage(btn, tempId) {
+        layer.confirm('确定要撤回这条消息吗？', {
+            btn: ['确定', '取消']
+        }, function(index) {
+            layer.close(index);
+            // 直接删除临时消息DOM
+            let msgLi = $('li[data-msg-id="' + tempId + '"]');
+            if (msgLi.length > 0) {
+                msgLi.remove();
+                layer.msg('消息已撤回');
+            }
+        });
+    }
 </script>
 
 <script>

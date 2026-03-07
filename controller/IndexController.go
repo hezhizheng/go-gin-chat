@@ -1,13 +1,15 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
 	"go-gin-chat/services/helper"
 	"go-gin-chat/services/message_service"
 	"go-gin-chat/services/user_service"
 	"go-gin-chat/ws/primary"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func Index(c *gin.Context) {
@@ -126,5 +128,49 @@ func Pagination(c *gin.Context) {
 		"data": map[string]interface{}{
 			"list": msgList,
 		},
+	})
+}
+
+// RecallMessage 撤回消息接口
+func RecallMessage(c *gin.Context) {
+	messageId := c.PostForm("message_id")
+	messageIdInt, err := strconv.Atoi(messageId)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 1,
+			"msg":  "消息ID格式错误",
+		})
+		return
+	}
+
+	userInfo := user_service.GetUserInfo(c)
+	userId := int(userInfo["uid"].(uint))
+
+	err = message_service.RecallMessage(messageIdInt, userId)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusOK, gin.H{
+				"code": 1,
+				"msg":  "消息不存在或无权限撤回",
+			})
+			return
+		}
+		if err == gorm.ErrInvalidData {
+			c.JSON(http.StatusOK, gin.H{
+				"code": 1,
+				"msg":  "消息发送超过2分钟，无法撤回",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code": 1,
+			"msg":  "撤回失败，请重试",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "撤回成功",
 	})
 }

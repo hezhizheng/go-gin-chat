@@ -65,10 +65,11 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
+                            <span class="recall-btn" onclick="recallMessage({{ .id }})">撤回</span>
 
                             {{ if eq .image_url $nullSrl }}
 
@@ -149,6 +150,23 @@
         // 滚动到底部
         toLow();
     });
+
+    function recallMessage(msgId) {
+        if (confirm('确定要撤回这条消息吗？')) {
+            let userInfo = {
+                uid: {{ .user_info.uid }},
+                username: {{ .user_info.username }},
+                room_id: {{ .room_id }},
+                avatar_id: {{ .user_info.avatar_id }},
+                msg_id: msgId
+            };
+            
+            ws.send(JSON.stringify({
+                status: 6, // msgTypeRecall
+                data: userInfo
+            }));
+        }
+    }
 </script>
 
 <script>

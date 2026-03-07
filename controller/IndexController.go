@@ -1,13 +1,15 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
+	"go-gin-chat/models"
 	"go-gin-chat/services/helper"
 	"go-gin-chat/services/message_service"
 	"go-gin-chat/services/user_service"
 	"go-gin-chat/ws/primary"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Index(c *gin.Context) {
@@ -127,4 +129,32 @@ func Pagination(c *gin.Context) {
 			"list": msgList,
 		},
 	})
+}
+
+func RecallMsg(c *gin.Context) {
+	msgIdStr := c.PostForm("msg_id")
+	msgId, err := strconv.ParseUint(msgIdStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 1,
+			"msg":  "消息ID无效",
+		})
+		return
+	}
+
+	userInfo := user_service.GetUserInfo(c)
+	uid := int(userInfo["uid"].(uint))
+
+	success, errMsg := models.RecallMessage(uint(msgId), uid)
+	if success {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"msg":  "消息已撤回",
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 1,
+			"msg":  errMsg,
+		})
+	}
 }

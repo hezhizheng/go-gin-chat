@@ -162,6 +162,16 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
 					}
 					break;
+				case 6:
+					// 消息撤回
+					if (received_msg.data.success) {
+						let msgId = received_msg.data.msg_id;
+						let msgElement = $('li[data-msg-id="' + msgId + '"]');
+						if (msgElement.length > 0) {
+							msgElement.html('<div class="recalled-message">该消息已撤回</div>');
+						}
+					}
+					break;
 				default:
 			}
 			// console.log("数据已接收...", received_msg);

@@ -31,18 +31,24 @@ func init() {
 }
 
 func main() {
-	// 关闭debug模式
-	gin.SetMode(gin.ReleaseMode)
+	// 开启debug模式
+	gin.SetMode(gin.DebugMode)
 
 	port := viper.GetString(`app.port`)
+	log.Println("初始化路由...")
 	router := routes.InitRoute()
 
 	//加载模板文件
+	log.Println("加载模板文件...")
 	router.SetHTMLTemplate(views.GoTpl)
 
 	//go_ws.CleanOfflineConn()
 
 	log.Println("监听端口", "http://127.0.0.1:"+port)
 
-	http.ListenAndServe(":"+port, router)
+	log.Println("启动服务器...")
+	err := http.ListenAndServe(":"+port, router)
+	if err != nil {
+		log.Fatal("服务器启动失败:", err)
+	}
 }

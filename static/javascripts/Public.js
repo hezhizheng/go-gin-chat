@@ -631,7 +631,10 @@ function recallMessageByElement(btn) {
 
 // 发送撤回消息请求
 function recallMessage(msgId) {
-	if (!msgId) return;
+	if (!msgId) {
+		alert('消息ID为空，无法撤回');
+		return;
+	}
 	
 	// 确认是否撤回
 	if (!confirm('确定要撤回这条消息吗？')) {

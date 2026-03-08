@@ -155,7 +155,25 @@
 
         // 滚动到底部
         toLow();
+        
+        // 页面加载后立即检查并隐藏超过2分钟的撤回按钮
+        hideExpiredRecallButtonsOnLoad();
     });
+    
+    // 页面加载时隐藏超过2分钟的撤回按钮
+    function hideExpiredRecallButtonsOnLoad() {
+        $('.msg-recall-btn').each(function() {
+            var createdAt = $(this).attr('data-created-at');
+            if (createdAt) {
+                var msgTime = new Date(createdAt).getTime();
+                var now = new Date().getTime();
+                var diff = now - msgTime;
+                if (diff > 2 * 60 * 1000) { // 超过2分钟
+                    $(this).hide();
+                }
+            }
+        });
+    }
 </script>
 
 <script>

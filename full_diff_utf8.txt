@@ -1,0 +1,279 @@
+﻿diff --git a/static/javascripts/Public.js b/static/javascripts/Public.js
+index 28fb218..e22f232 100644
+--- a/static/javascripts/Public.js
++++ b/static/javascripts/Public.js
+@@ -109,7 +109,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
+ 					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
+ 					{
+ 						chat_info.html(chat_info.html() +
+-							'<li class="left"><img src="/static/images/user/' +
++							'<li class="left" data-message-id="' + received_msg.data.message_id + '"><img src="/static/images/user/' +
+ 							received_msg.data.avatar_id +
+ 							'.png" alt=""><b>' +
+ 							received_msg.data.username +
+@@ -118,6 +118,19 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
+ 							'</i><div class="aaa">' +
+ 							received_msg.data.content +
+ 							'</div></li>');
++					} else if (received_msg.data.uid == userInfo.uid) {
++						// 鏌ユ壘褰撳墠鐢ㄦ埛鍙戦€佺殑鏈€鍚庝竴鏉℃秷鎭?+						let $messages = $('.chat_info li.right');
++						if ($messages.length > 0) {
++							let $lastMessage = $messages.last();
++							// 鏇存柊娑堟伅ID涓哄悗绔繑鍥炵殑瀹為檯娑堟伅ID
++							$lastMessage.attr('data-message-id', received_msg.data.message_id);
++							// 鏇存柊鎾ゅ洖鎸夐挳鐨刼nclick浜嬩欢
++							let recallBtn = $lastMessage.find('.recall-btn');
++							if (recallBtn.length > 0) {
++								recallBtn.attr('onclick', 'recallMessage(' + received_msg.data.message_id + ')');
++							}
++						}
+ 					}
+ 					break;
+ 				case -1:
+@@ -162,6 +175,30 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
+ 						layer.msg(received_msg.data.username+'锛?+ received_msg.data.content);
+ 					}
+ 					break;
++				case 6:
++					// 娑堟伅鎾ゅ洖
++					if (received_msg.data.error) {
++						// 鎾ゅ洖澶辫触
++						layer.msg(received_msg.data.error);
++					} else {
++						// 鎾ゅ洖鎴愬姛锛屾洿鏂版秷鎭樉绀?+						let messageId = received_msg.data.message_id;
++						let $message = $('.chat_info li[data-message-id="' + messageId + '"]');
++						if ($message.length > 0) {
++							$message.find('.recall-btn').remove();
++							$message.find('div').addClass('recalled-message').html('銆愭秷鎭凡鎾ゅ洖銆?);
++						}
++						// 鏄剧ず绯荤粺娑堟伅
++						chat_info.html(chat_info.html() +
++							'<li class="systeminfo"> <span>' +
++							"銆? +
++							received_msg.data.username +
++							"銆? +
++							time +
++							" 鎾ゅ洖浜嗕竴鏉℃秷鎭? +
++							'</span></li>');
++					}
++					break;
+ 				default:
+ 			}
+ 			// console.log("鏁版嵁宸叉帴鏀?..", received_msg);
+@@ -332,23 +369,25 @@ $(document).ready(function(){
+ 				status = 5
+ 			}
+ 
+-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(鏄电О,澶村儚id,鑱婂ぉ鍐呭);
+-
+-			let send_data = JSON.stringify({
+-				"status": status,
+-				"data": {
+-					"uid": $('.room').attr('data-uid').toString(),
+-					"username": $('.room').attr('data-username'),
+-					"avatar_id": $('.room').attr('data-avatar_id'),
+-					"room_id": $('.room').attr('data-room_id'),
+-					"image_url": res.data.url,
+-					"content": str,
+-					"to_uid" : to_uid,
+-				}
+-			})
+-
+-			console.log("send_data",send_data)
+-			ws.send(send_data);
++			// 鐢熸垚涓存椂娑堟伅ID
++				let tempMessageId = Date.now();
++				sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempMessageId); // sends_message(鏄电О,澶村儚id,鑱婂ぉ鍐呭,娑堟伅ID);
++
++				let send_data = JSON.stringify({
++					"status": status,
++					"data": {
++						"uid": $('.room').attr('data-uid').toString(),
++						"username": $('.room').attr('data-username'),
++						"avatar_id": $('.room').attr('data-avatar_id'),
++						"room_id": $('.room').attr('data-room_id'),
++						"image_url": res.data.url,
++						"content": str,
++						"to_uid" : to_uid
++					}
++				})
++
++				console.log("send_data",send_data)
++				ws.send(send_data);
+ 
+ 
+ 			// 婊氬姩鏉℃粴鍒版渶涓嬮潰
+@@ -387,22 +426,24 @@ $(document).ready(function(){
+ 			}
+ 
+ 
+-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(鏄电О,澶村儚id,鑱婂ぉ鍐呭);
+-
+-			let send_data = JSON.stringify({
+-				"status": status,
+-				"data": {
+-					"uid": $('.room').attr('data-uid').toString(),
+-					"username": $('.room').attr('data-username'),
+-					"avatar_id": $('.room').attr('data-avatar_id'),
+-					"room_id": $('.room').attr('data-room_id'),
+-					"content": str,
+-					"image_url" : "",
+-					"to_uid" : to_uid,
+-				}
+-			})
++			// 鐢熸垚涓存椂娑堟伅ID
++				let tempMessageId = Date.now();
++				sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempMessageId); // sends_message(鏄电О,澶村儚id,鑱婂ぉ鍐呭,娑堟伅ID);
++
++				let send_data = JSON.stringify({
++					"status": status,
++					"data": {
++						"uid": $('.room').attr('data-uid').toString(),
++						"username": $('.room').attr('data-username'),
++						"avatar_id": $('.room').attr('data-avatar_id'),
++						"room_id": $('.room').attr('data-room_id'),
++						"content": str,
++						"image_url" : "",
++						"to_uid" : to_uid
++					}
++				})
+ 
+-			ws.send(send_data);
++				ws.send(send_data);
+ 
+ 			// 婊氬姩鏉℃粴鍒版渶涓嬮潰
+ 			toLow();
+@@ -492,12 +533,13 @@ $(document).ready(function(){
+ 	$('.imgFileico').click(function(event) {
+ 		$('.imgFileBtn').click();
+ 	});
+-	function sends_message (userName, userPortrait, message) {
++	function sends_message (userName, userPortrait, message, messageId) {
+ 		if(message!='') {
+ 
+ 			let myDate = new Date();
+-			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
+-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
++			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString();
++			let msgId = messageId || Date.now(); // 浣跨敤鍚庣杩斿洖鐨勬秷鎭疘D鎴栫敓鎴愪复鏃禝D
++			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-message-id="' + msgId + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="message-content">' + message  +'</div><button class="recall-btn" onclick="recallMessage(' + msgId + ')">鎾ゅ洖</button></li>');
+ 		}
+ 	}
+ 	$('.text input').keypress(function(e) {
+@@ -541,4 +583,26 @@ function toLow() {
+ 	}, 500);
+ }
+ 
++// 鎾ゅ洖娑堟伅鍑芥暟
++function recallMessage(messageId) {
++	let send_data = JSON.stringify({
++		"status": 6,
++		"data": {
++			"uid": $('.room').attr('data-uid').toString(),
++			"username": $('.room').attr('data-username'),
++			"avatar_id": $('.room').attr('data-avatar_id'),
++			"room_id": $('.room').attr('data-room_id'),
++			"message_id": messageId.toString(),
++			"to_uid": "0"
++		}
++	});
++
++	ws.send(send_data);
++}
++
++// 娣诲姞鎾ゅ洖鎸夐挳鏍峰紡
++$(document).ready(function() {
++	$('<style>').text('.message-content { text-align: left; padding: 5px; background-color: #D0D7DF; margin: 0 60px; word-break: break-all; float: right; max-width: 70%; } .recall-btn { margin: 5px 10px 0 0; padding: 2px 8px; font-size: 12px; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; float: right; clear: right; } .recall-btn:hover { background-color: #e0e0e0; } .recalled-message { color: #999; font-style: italic; }').appendTo('head');
++});
++
+ 
+diff --git a/ws/serve.go b/ws/serve.go
+index 1faaa27..611205a 100644
+--- a/ws/serve.go
++++ b/ws/serve.go
+@@ -70,6 +70,7 @@ const msgTypeOffline = 2       // 绂荤嚎
+ const msgTypeSend = 3          // 娑堟伅鍙戦€? const msgTypeGetOnlineUser = 4 // 鑾峰彇鐢ㄦ埛鍒楄〃
+ const msgTypePrivateChat = 5  // 绉佽亰
++const msgTypeRecall = 6       // 娑堟伅鎾ゅ洖
+ 
+ const roomCount = 6 // 鎴块棿鎬绘暟
+ 
+@@ -135,8 +136,12 @@ func mainProcess(c *websocket.Conn) {
+ 			continue
+ 		}
+ 
++		if clientMsg.Status == msgTypeRecall {
++			serveMsgStr = formatServeMsgStr(msgTypeRecall)
++		}
++
+ 		//log.Println("serveMsgStr", string(serveMsgStr))
+-		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
++		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline || clientMsg.Status == msgTypeRecall {
+ 			notify(c, string(serveMsgStr))
+ 		}
+ 	}
+@@ -246,9 +251,10 @@ func formatServeMsgStr(status int) []byte {
+ 		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+ 		intUid, _ := strconv.Atoi(stringUid)
+ 
++		var savedMessage models.Message
+ 		if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
+ 			// 瀛樺湪鍥剧墖
+-			models.SaveContent(map[string]interface{}{
++			savedMessage = models.SaveContent(map[string]interface{}{
+ 				"user_id":    intUid,
+ 				"to_user_id": toUid,
+ 				"content":    data["content"],
+@@ -256,7 +262,7 @@ func formatServeMsgStr(status int) []byte {
+ 				"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
+ 			})
+ 		} else {
+-			models.SaveContent(map[string]interface{}{
++			savedMessage = models.SaveContent(map[string]interface{}{
+ 				"user_id":    intUid,
+ 				"to_user_id": toUid,
+ 				"room_id":    data["room_id"],
+@@ -264,6 +270,9 @@ func formatServeMsgStr(status int) []byte {
+ 			})
+ 		}
+ 
++		// 灏嗘秷鎭疘D杩斿洖缁欏墠绔?+		data["message_id"] = savedMessage.ID
++
+ 	}
+ 
+ 	if status == msgTypeGetOnlineUser {
+@@ -271,6 +280,38 @@ func formatServeMsgStr(status int) []byte {
+ 		data["list"] = onLineUserList(roomIdInt)
+ 	}
+ 
++	if status == msgTypeRecall {
++		// 澶勭悊娑堟伅鎾ゅ洖
++		messageId := clientMsg.Data.(map[string]interface{})["message_id"].(string)
++		messageIdInt, _ := strconv.Atoi(messageId)
++		
++		// 妫€鏌ユ秷鎭槸鍚﹀瓨鍦ㄤ笖鏄惁鍦?鍒嗛挓鍐?+		var message models.Message
++		result := models.ChatDB.First(&message, messageIdInt)
++		if result.Error == nil {
++			// 妫€鏌ユ秷鎭槸鍚︽槸褰撳墠鐢ㄦ埛鍙戦€佺殑
++			stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
++			intUid, _ := strconv.Atoi(stringUid)
++			
++			if message.UserId == intUid {
++				// 妫€鏌ユ秷鎭槸鍚﹀湪2鍒嗛挓鍐?+				if time.Since(message.CreatedAt) <= 2*time.Minute {
++					data["message_id"] = messageId
++					data["recall_time"] = time.Now().UnixNano() / 1e6
++				} else {
++					// 娑堟伅瓒呰繃2鍒嗛挓锛屼笉鍏佽鎾ゅ洖
++					data["error"] = "娑堟伅瓒呰繃2鍒嗛挓锛屾棤娉曟挙鍥?
++				}
++			} else {
++				// 涓嶆槸娑堟伅鍙戦€佽€咃紝涓嶅厑璁告挙鍥?+				data["error"] = "鍙兘鎾ゅ洖鑷繁鐨勬秷鎭?
++			}
++		} else {
++			// 娑堟伅涓嶅瓨鍦?+			data["error"] = "娑堟伅涓嶅瓨鍦?
++		}
++	}
++
+ 	jsonStrServeMsg := msg{
+ 		Status: status,
+ 		Data:   data,

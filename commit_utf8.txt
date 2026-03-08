@@ -1,0 +1,28 @@
+﻿commit 226403dadff22fc2caefc32c2ba3c76f2d016a26
+Author: wurui <wurui851128@sina.com>
+Date:   Sun Mar 8 12:28:22 2026 +0800
+
+    doubao v3: 2鍒嗛挓鍐呮挙鍥炴秷鎭?
+diff --git a/static/javascripts/Public.js b/static/javascripts/Public.js
+index e84e792..e22f232 100644
+--- a/static/javascripts/Public.js
++++ b/static/javascripts/Public.js
+@@ -118,6 +118,19 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
+ 							'</i><div class="aaa">' +
+ 							received_msg.data.content +
+ 							'</div></li>');
++					} else if (received_msg.data.uid == userInfo.uid) {
++						// 鏌ユ壘褰撳墠鐢ㄦ埛鍙戦€佺殑鏈€鍚庝竴鏉℃秷鎭?+						let $messages = $('.chat_info li.right');
++						if ($messages.length > 0) {
++							let $lastMessage = $messages.last();
++							// 鏇存柊娑堟伅ID涓哄悗绔繑鍥炵殑瀹為檯娑堟伅ID
++							$lastMessage.attr('data-message-id', received_msg.data.message_id);
++							// 鏇存柊鎾ゅ洖鎸夐挳鐨刼nclick浜嬩欢
++							let recallBtn = $lastMessage.find('.recall-btn');
++							if (recallBtn.length > 0) {
++								recallBtn.attr('onclick', 'recallMessage(' + received_msg.data.message_id + ')');
++							}
++						}
+ 					}
+ 					break;
+ 				case -1:

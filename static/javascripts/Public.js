@@ -109,16 +109,26 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
 					{
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="left" data-message-id="' + received_msg.data.message_id + '" data-created-at="' + received_msg.data.time + '"><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
 							'</b><i>' +
 							time +
-							'</i><div class="aaa">' +
+							'</i><div class="message-content">' +
 							received_msg.data.content +
 							'</div></li>');
+					} else if (received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+						let $tempLi = $('li[data-message-id^="temp_"]').last();
+						if ($tempLi.length) {
+							$tempLi.attr('data-message-id', received_msg.data.message_id);
+							$tempLi.attr('data-created-at', received_msg.data.time);
+							showRecallBtn(received_msg.data.message_id);
+						}
 					}
+					break;
+				case 6:
+					handleRecallMessage(received_msg.data.message_id);
 					break;
 				case -1:
 					ws.close() // 主动close掉
@@ -208,6 +218,12 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 }
 
 $(document).ready(function(){
+// 撤回按钮点击事件
+$(document).on('click', '.recall-btn', function() {
+	let messageId = $(this).closest('li').data('message-id');
+	recallMessage(messageId);
+});
+
 // ------------------------选择聊天室页面-----------------------------------------------
 
 	// 在页面即将卸载之前关闭WebSocket连接
@@ -332,7 +348,8 @@ $(document).ready(function(){
 				status = 5
 			}
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			let tempId = 'temp_' + Date.now();
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempId);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -386,8 +403,8 @@ $(document).ready(function(){
 				status = 5
 			}
 
-
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			let tempId = 'temp_' + Date.now();
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempId);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -492,13 +509,72 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
+	function sends_message (userName, userPortrait, message, messageId) {
 		if(message!='') {
 
 			let myDate = new Date();
-			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString();
+			let createdAt = myDate.getTime();
+			let liHtml = '<li class="right" data-message-id="' + messageId + '" data-created-at="' + createdAt + '">' +
+				'<img src="/static/images/user/' + userPortrait + '.png" alt="">' +
+				'<b>' + userName + '</b>' +
+				'<i>'+ time +'</i>' +
+				'<div class="message-content">' + message + '</div>' +
+				'<div class="recall-btn" style="display:none; cursor:pointer; color:#007bff; font-size:12px;">撤回</div>' +
+				'</li>';
+			$('.main .chat_info').append(liHtml);
+			
+			showRecallBtn(messageId);
 		}
+	}
+	
+	function showRecallBtn(messageId) {
+		let $li = $('li[data-message-id="' + messageId + '"]');
+		let createdAt = parseInt($li.data('created-at'));
+		let now = Date.now();
+		let timeDiff = (now - createdAt) / 1000;
+		
+		if (timeDiff < 120) {
+			$li.find('.recall-btn').show();
+			
+			setTimeout(function() {
+				$li.find('.recall-btn').hide();
+			}, (120 - timeDiff) * 1000);
+		}
+	}
+	
+	function handleRecallMessage(messageId) {
+		let $li = $('li[data-message-id="' + messageId + '"]');
+		$li.find('.message-content').html('<span style="color:#999;">[消息已撤回]</span>');
+		$li.find('.recall-btn').remove();
+		$li.addClass('recalled');
+	}
+	
+	function recallMessage(messageId) {
+		let $li = $('li[data-message-id="' + messageId + '"]');
+		let createdAt = parseInt($li.data('created-at'));
+		let now = Date.now();
+		let timeDiff = (now - createdAt) / 1000;
+		
+		if (timeDiff > 120) {
+			layer.msg('超过2分钟，无法撤回');
+			return;
+		}
+		
+		layer.confirm('确定要撤回这条消息吗？', {icon: 3, title:'提示'}, function(index) {
+			let send_data = JSON.stringify({
+				"status": 6,
+				"data": {
+					"uid": $('.room').attr('data-uid').toString(),
+					"username": $('.room').attr('data-username'),
+					"room_id": $('.room').attr('data-room_id'),
+					"message_id": messageId
+				}
+			});
+			
+			ws.send(send_data);
+			layer.close(index);
+		});
 	}
 	$('.text input').keypress(function(e) {
 		if (e.which == 13){

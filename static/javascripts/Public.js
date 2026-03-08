@@ -52,6 +52,9 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 			ws.send(send_data);
 			//console.log("send_data 发送数据", send_data)
 			toLow();
+			
+			// 初始化消息撤回功能
+			initRecallFeature(userInfo.uid);
 		};
 
 		// if ( toUserInfo )
@@ -106,20 +109,51 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
-						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
-							received_msg.data.avatar_id +
-							'.png" alt=""><b>' +
-							received_msg.data.username +
-							'</b><i>' +
-							time +
-							'</i><div class="aaa">' +
-							received_msg.data.content +
-							'</div></li>');
+				if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
+				{
+					chat_info.html(chat_info.html() +
+						'<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
+						received_msg.data.avatar_id +
+						'.png" alt=""><b>' +
+						received_msg.data.username +
+						'</b><i>' +
+						time +
+						'</i><div class="aaa">' +
+						received_msg.data.content +
+						'</div></li>');
+				} else if (received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+					// 更新自己发送消息的msg_id
+					var $lastRightMsg = $('.chat_info li.right').last();
+					if ($lastRightMsg.length > 0 && !$lastRightMsg.attr('data-msg-id')) {
+						var now = new Date();
+						$lastRightMsg.attr('data-msg-id', received_msg.data.msg_id);
+						$lastRightMsg.attr('data-user-id', received_msg.data.uid);
+						$lastRightMsg.attr('data-created-at', now.toISOString());
+						// 更新撤回按钮的onclick事件，使用msg_id
+						var $recallBtn = $lastRightMsg.find('.msg-recall-btn');
+						if ($recallBtn.length > 0) {
+							$recallBtn.attr('onclick', 'recallMessage(' + received_msg.data.msg_id + ')');
+							$recallBtn.attr('data-created-at', now.toISOString());
+						}
 					}
-					break;
+				}
+				break;
+			case 6:
+				// 消息撤回通知
+				var msgId = received_msg.data.msg_id;
+				var $msgLi = $('li[data-msg-id="' + msgId + '"]');
+				if ($msgLi.length > 0) {
+					// 移除消息内容div和撤回按钮
+					$msgLi.find('div').remove();
+					$msgLi.find('.msg-recall-btn').remove();
+					// 添加已撤回提示
+					$msgLi.append('<div class="recalled-msg">消息已撤回</div>');
+				}
+				break;
+			case -2:
+				// 撤回失败
+				layer.msg('消息撤回失败，可能已超过2分钟或您没有权限');
+				break;
 				case -1:
 					ws.close() // 主动close掉
 					isServeClose = 1
@@ -404,6 +438,9 @@ $(document).ready(function(){
 
 			ws.send(send_data);
 
+			// 保存最后发送的消息ID（用于撤回功能）
+			// 这里需要从服务器返回的消息中获取ID，暂时通过其他方式处理
+
 			// 滚动条滚到最下面
 			toLow();
 
@@ -497,7 +534,11 @@ $(document).ready(function(){
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			var createdAt = new Date().toISOString();
+			var userId = $('.room').attr('data-uid');
+			// 为新消息添加撤回按钮（初始时没有msg_id，等服务器返回后再更新）
+			var recallBtn = '<button class="msg-recall-btn" onclick="recallMessageByElement(this)" data-created-at="' + createdAt + '">撤回</button>';
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-user-id="' + userId + '" data-created-at="' + createdAt + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div>' + recallBtn + '</li>');
 		}
 	}
 	$('.text input').keypress(function(e) {
@@ -539,6 +580,79 @@ function toLow() {
 	$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
 		scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
 	}, 500);
+}
+
+// 消息撤回相关功能
+let currentUserId = null;
+
+function initRecallFeature(userId) {
+	currentUserId = userId;
+	
+	// 初始隐藏超过2分钟的消息撤回按钮
+	hideExpiredRecallButtons();
+	
+	// 每秒检查一次，隐藏超时的撤回按钮
+	setInterval(hideExpiredRecallButtons, 1000);
+}
+
+// 隐藏超过2分钟的撤回按钮
+function hideExpiredRecallButtons() {
+	$('.msg-recall-btn').each(function() {
+		var createdAt = $(this).attr('data-created-at');
+		if (createdAt && !isWithinTwoMinutes(createdAt)) {
+			$(this).hide();
+		}
+	});
+}
+
+// 检查消息是否在2分钟内发送
+function isWithinTwoMinutes(createdAt) {
+	if (!createdAt) return false;
+	var msgTime = new Date(createdAt).getTime();
+	var now = new Date().getTime();
+	var diff = now - msgTime;
+	return diff <= 2 * 60 * 1000; // 2分钟
+}
+
+// 通过元素撤回消息（用于新发送的消息）
+function recallMessageByElement(btn) {
+	var $li = $(btn).closest('li');
+	var msgId = $li.attr('data-msg-id');
+	if (msgId) {
+		recallMessage(msgId);
+	} else {
+		if (typeof layer !== 'undefined') {
+			layer.msg('消息正在发送中，请稍后再试');
+		} else {
+			alert('消息正在发送中，请稍后再试');
+		}
+	}
+}
+
+// 发送撤回消息请求
+function recallMessage(msgId) {
+	if (!msgId) {
+		alert('消息ID为空，无法撤回');
+		return;
+	}
+	
+	// 确认是否撤回
+	if (!confirm('确定要撤回这条消息吗？')) {
+		return;
+	}
+	
+	let send_data = JSON.stringify({
+		"status": 6,
+		"data": {
+			"uid": $('.room').attr('data-uid').toString(),
+			"username": $('.room').attr('data-username'),
+			"avatar_id": $('.room').attr('data-avatar_id'),
+			"room_id": $('.room').attr('data-room_id'),
+			"msg_id": parseInt(msgId),
+		}
+	});
+	
+	ws.send(send_data);
 }
 
 

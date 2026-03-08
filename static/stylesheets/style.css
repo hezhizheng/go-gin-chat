@@ -304,6 +304,72 @@ ul{
 	border-radius: 20px;
 	font-size: 12px;
 }
+
+/* 消息撤回样式 */
+.room .chat_info .recalled-msg {
+	background-color: #f0f0f0;
+	color: #999;
+	font-style: italic;
+	padding: 5px 10px;
+	border-radius: 4px;
+	display: inline-block;
+}
+
+.room .chat_info li.right .recalled-msg {
+	float: right;
+	margin-right: 60px;
+}
+
+.room .chat_info li.left .recalled-msg {
+	float: left;
+	margin-left: 60px;
+}
+
+/* 撤回按钮样式 - 内联显示在消息旁边 */
+.msg-recall-btn {
+	display: inline-block;
+	background-color: #ff6b6b;
+	color: #fff;
+	border: none;
+	border-radius: 3px;
+	padding: 2px 8px;
+	cursor: pointer;
+	font-size: 11px;
+	margin-left: 10px;
+	margin-right: 10px;
+	opacity: 0.8;
+	transition: opacity 0.2s;
+	vertical-align: middle;
+}
+
+.msg-recall-btn:hover {
+	opacity: 1;
+	background-color: #ff5252;
+}
+
+/* 右侧消息（自己发送的）撤回按钮位置 */
+.room .chat_info li.right .msg-recall-btn {
+	float: right;
+	margin-right: 5px;
+	margin-top: 5px;
+}
+
+/* 左侧消息（他人发送的）不显示撤回按钮 */
+.room .chat_info li.left .msg-recall-btn {
+	display: none;
+}
+
+/* 消息行样式 */
+.room .chat_info li {
+	position: relative;
+	clear: both;
+}
+
+/* 时间戳和撤回按钮容器 */
+.msg-meta {
+	display: inline-block;
+	vertical-align: middle;
+}
 .room .input{
 	/*position: fixed;*/
 	/*bottom: 0;*/

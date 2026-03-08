@@ -194,9 +194,8 @@ func handleConnClients(c *websocket.Conn) {
 func notify(conn *websocket.Conn, msg string) {
 	_, roomIdInt := getRoomId()
 	for _, con := range rooms[roomIdInt] {
-		if con.RemoteAddr != conn.RemoteAddr().String() {
-			con.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-		}
+		// 对于消息撤回，通知所有客户端，包括发送者
+		con.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	}
 }
 

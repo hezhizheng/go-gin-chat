@@ -369,9 +369,7 @@ $(document).ready(function(){
 				status = 5
 			}
 
-			// 生成临时消息ID
-				let tempMessageId = Date.now();
-				sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempMessageId); // sends_message(昵称,头像id,聊天内容,消息ID);
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
 
 				let send_data = JSON.stringify({
 					"status": status,
@@ -426,9 +424,7 @@ $(document).ready(function(){
 			}
 
 
-			// 生成临时消息ID
-				let tempMessageId = Date.now();
-				sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempMessageId); // sends_message(昵称,头像id,聊天内容,消息ID);
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
 
 				let send_data = JSON.stringify({
 					"status": status,
@@ -533,13 +529,13 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message, messageId) {
+	function sends_message (userName, userPortrait, message) {
 		if(message!='') {
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString();
-			let msgId = messageId || Date.now(); // 使用后端返回的消息ID或生成临时ID
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-message-id="' + msgId + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="message-content">' + message  +'</div><button class="recall-btn" onclick="recallMessage(' + msgId + ')">撤回</button></li>');
+			let tempMessageId = Date.now(); // 生成临时消息ID
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-message-id="' + tempMessageId + '" data-temp-id="' + tempMessageId + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="message-content">' + message  +'</div><button class="recall-btn" onclick="recallMessage(' + tempMessageId + ')">撤回</button></li>');
 		}
 	}
 	$('.text input').keypress(function(e) {

@@ -273,11 +273,6 @@ func formatServeMsgStr(status int) []byte {
 		// 将消息ID返回给前端
 		data["message_id"] = savedMessage.ID
 
-		// 将临时消息ID返回给前端，用于更新前端消息的ID
-		if tempMessageId, ok := clientMsg.Data.(map[string]interface{})["temp_message_id"]; ok {
-			data["temp_message_id"] = tempMessageId
-		}
-
 	}
 
 	if status == msgTypeGetOnlineUser {

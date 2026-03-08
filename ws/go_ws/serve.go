@@ -33,16 +33,18 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid        string        `json:"uid"`
+	Username   string        `json:"username"`
+	AvatarId   string        `json:"avatar_id"`
+	ToUid      string        `json:"to_uid"`
+	Content    string        `json:"content"`
+	ImageUrl   string        `json:"image_url"`
+	RoomId     string        `json:"room_id"`
+	Count      int           `json:"count"`
+	List       []interface{} `json:"list"`
+	Time       int64         `json:"time"`
+	MsgId      uint          `json:"msg_id"`
+	IsRecalled int           `json:"is_recalled"`
 }
 
 // client & serve 的消息体
@@ -89,6 +91,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -275,6 +278,11 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeRecall:
+				chNotify <- 1
+				// 撤回消息通知所有房间用户
+				notifyRecall(cl)
+				<-chNotify
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -427,6 +435,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	content := clientMsg.Data.Content
 	toUidStr := clientMsg.Data.ToUid
 	imageUrl := clientMsg.Data.ImageUrl
+	msgId := clientMsg.Data.MsgId
 	clientMsgLock.Unlock()
 
 	roomIdInt, _ := strconv.Atoi(roomId)
@@ -454,9 +463,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,20 +474,40 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
-
+		// 返回消息ID
+		data.MsgId = savedMsg.ID
 	}
 
 	if status == msgTypeGetOnlineUser {
 		ro := rooms[roomIdInt]
 		data.Count = len(ro)
 		data.List = ro
+	}
+
+	if status == msgTypeRecall {
+		data.MsgId = msgId
+		// 执行撤回操作
+		intUid, _ := strconv.Atoi(uid)
+		err := models.RecallMessage(msgId, intUid)
+		if err != nil {
+			log.Println("撤回消息失败:", err)
+			// 撤回失败，发送错误状态
+			jsonStrServeMsg := msg{
+				Status: -2, // 撤回失败状态码
+				Data:   data,
+				Conn:   conn,
+			}
+			serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
+			return serveMsgStr, jsonStrServeMsg
+		}
+		data.IsRecalled = 1
 	}
 
 	jsonStrServeMsg := msg{
@@ -498,6 +528,34 @@ func getRoomId() (string, int) {
 
 	roomIdInt, _ := strconv.Atoi(roomId)
 	return roomId, roomIdInt
+}
+
+// notifyRecall 通知所有用户消息被撤回
+func notifyRecall(cl msg) {
+	roomIdInt, _ := strconv.Atoi(cl.Data.RoomId)
+	assignRoom := rooms[roomIdInt]
+	
+	recallData := msgData{
+		Uid:        cl.Data.Uid,
+		Username:   cl.Data.Username,
+		AvatarId:   cl.Data.AvatarId,
+		RoomId:     cl.Data.RoomId,
+		MsgId:      cl.Data.MsgId,
+		IsRecalled: 1,
+		Time:       time.Now().UnixNano() / 1e6,
+	}
+	
+	recallMsg := msg{
+		Status: msgTypeRecall,
+		Data:   recallData,
+		Conn:   cl.Conn,
+	}
+	
+	serveMsgStr, _ := json.Marshal(recallMsg)
+	
+	for _, con := range assignRoom {
+		con.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+	}
 }
 
 // =======================对外方法=====================================

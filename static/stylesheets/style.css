@@ -304,6 +304,48 @@ ul{
 	border-radius: 20px;
 	font-size: 12px;
 }
+
+/* 消息撤回样式 */
+.room .chat_info .recalled-msg {
+	background-color: #f0f0f0;
+	color: #999;
+	font-style: italic;
+	padding: 5px 10px;
+	border-radius: 4px;
+	display: inline-block;
+}
+
+.room .chat_info li.right .recalled-msg {
+	float: right;
+	margin-right: 60px;
+}
+
+.room .chat_info li.left .recalled-msg {
+	float: left;
+	margin-left: 60px;
+}
+
+/* 撤回按钮样式 */
+.recall-btn {
+	position: absolute;
+	background-color: #fff;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	padding: 5px 10px;
+	cursor: pointer;
+	font-size: 12px;
+	color: #333;
+	z-index: 1000;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.recall-btn:hover {
+	background-color: #f5f5f5;
+}
+
+.room .chat_info li {
+	position: relative;
+}
 .room .input{
 	/*position: fixed;*/
 	/*bottom: 0;*/

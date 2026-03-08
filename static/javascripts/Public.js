@@ -118,6 +118,19 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							'</i><div class="aaa">' +
 							received_msg.data.content +
 							'</div></li>');
+					} else if (received_msg.data.uid == userInfo.uid) {
+						// 查找当前用户发送的最后一条消息
+						let $messages = $('.chat_info li.right');
+						if ($messages.length > 0) {
+							let $lastMessage = $messages.last();
+							// 更新消息ID为后端返回的实际消息ID
+							$lastMessage.attr('data-message-id', received_msg.data.message_id);
+							// 更新撤回按钮的onclick事件
+							let recallBtn = $lastMessage.find('.recall-btn');
+							if (recallBtn.length > 0) {
+								recallBtn.attr('onclick', 'recallMessage(' + received_msg.data.message_id + ')');
+							}
+						}
 					}
 					break;
 				case -1:

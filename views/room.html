@@ -78,6 +78,7 @@
                                 {{else}}
                                     <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                                <button class="msg-recall-btn" onclick="recallMessage({{ .id }})" data-created-at="{{ .created_at }}">撤回</button>
                             {{end}}
                         </li>
 

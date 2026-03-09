@@ -20,21 +20,26 @@ $(document).ready(function(){
 
 
                 $.each(item,function (index, value) {
-                    if ( value.user_id == $("#body-room").attr("data-uid") )
-                    {
+                    if ( value.is_deleted ) {
+                        // 已撤回的消息
                         $('#chat-list-li-top').after(
-                            '<li class="right"><img src="/static/images/user/' +
+                            '<li class="systeminfo" data-msg-id="' + value.id + '"><span>【' + value.username + '】撤回了一条消息</span></li>');
+                    } else if ( value.user_id == $("#body-room").attr("data-uid") ) {
+                        // 自己发送的未撤回消息
+                        $('#chat-list-li-top').after(
+                            '<li class="right" data-msg-id="' + value.id + '"><img src="/static/images/user/' +
                             value.avatar_id +
                             '.png" alt=""><b>' +
                             value.username +
                             '</b><i>' +
                             value.created_at +
-                            '</i><div class="aaa">' +
+                            '</i><button class="btn撤回" style="font-size: 10px; margin-left: 10px; padding: 2px 5px;" data-msg-id="' + value.id + '">撤回</button><div class="aaa">' +
                             value.content+
                             '</div></li>');
-                    }else{
+                    } else {
+                        // 他人发送的未撤回消息
                         $('#chat-list-li-top').after(
-                            '<li class="left"><img src="/static/images/user/' +
+                            '<li class="left" data-msg-id="' + value.id + '"><img src="/static/images/user/' +
                             value.avatar_id +
                             '.png" alt=""><b>' +
                             value.username +

@@ -43,6 +43,7 @@ type msgData struct {
 	Count    int           `json:"count"`
 	List     []interface{} `json:"list"`
 	Time     int64         `json:"time"`
+	MsgId    string        `json:"msg_id"`
 }
 
 // client & serve 的消息体
@@ -89,6 +90,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeDelete = 6        // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -275,6 +277,40 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeDelete:
+				// 处理撤回消息
+				msgId, _ := strconv.ParseUint(cl.Data.MsgId, 10, 32)
+				userId, _ := strconv.Atoi(cl.Data.Uid)
+				success := models.DeleteMessage(uint(msgId), userId)
+				if success {
+					// 撤回成功，通知房间内的所有用户或特定用户
+					if cl.Data.ToUid == "0" {
+						// 群聊，通知所有用户
+						notify(cl.Conn, string(serveMsgStr))
+					} else {
+						// 私聊，通知特定用户
+						chNotify <- 1
+						toC := findToUserCoonClient()
+						if toC != nil {
+							toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+						}
+						// 同时通知发送者
+						cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+						<-chNotify
+					}
+				} else {
+					// 撤回失败，返回错误信息
+					chNotify <- 1
+					errorMsg := map[string]interface{}{
+						"status": -2,
+						"data": map[string]interface{}{
+							"message": "撤回失败，消息超过2分钟或无权限",
+						},
+					}
+					errorMsgStr, _ := json.Marshal(errorMsg)
+					cl.Conn.WriteMessage(websocket.TextMessage, errorMsgStr)
+					<-chNotify
+				}
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -454,9 +490,11 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		// 保存消息并获取消息ID
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,13 +502,15 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
+		// 设置消息ID
+		data.MsgId = strconv.FormatUint(uint64(savedMsg.ID), 10)
 
 	}
 

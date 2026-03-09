@@ -15,6 +15,7 @@ type Message struct {
 	RoomId    int
 	Content   string
 	ImageUrl  string
+	IsDeleted bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -47,6 +48,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Joins("INNER Join users on users.id = messages.user_id").
 		Where("messages.room_id = " + roomId).
 		Where("messages.to_user_id = 0").
+		Where("messages.is_deleted = ?", false).
 		Order("messages.id desc").
 		Offset(offset).
 		Limit(100).
@@ -72,6 +74,7 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 			" or " +
 			"(" + "messages.user_id = " + toUId + " and messages.to_user_id=" + uid + ")" +
 			")").
+		Where("messages.is_deleted = ?", false).
 		Order("messages.id desc").
 		Offset(offset).
 		Limit(100).
@@ -84,4 +87,27 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 	}
 
 	return results
+}
+
+func DeleteMessage(id uint, userId int) bool {
+	var message Message
+	result := ChatDB.First(&message, id)
+	if result.Error != nil {
+		return false
+	}
+	
+	// 检查消息是否是当前用户发送的
+	if message.UserId != userId {
+		return false
+	}
+	
+	// 检查消息是否在2分钟内
+	if time.Since(message.CreatedAt) > 2*time.Minute {
+		return false
+	}
+	
+	// 更新消息状态为已撤回
+	message.IsDeleted = true
+	ChatDB.Save(&message)
+	return true
 }

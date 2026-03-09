@@ -20,28 +20,36 @@ $(document).ready(function(){
 
 
                 $.each(item,function (index, value) {
+                    var isWithdrawn = value.is_withdrawn == 1;
+                    var contentHtml = isWithdrawn 
+                        ? '<span style="color: #999; font-style: italic;">消息已撤回</span>' 
+                        : value.content;
+                    var withdrawnClass = isWithdrawn ? 'withdrawn' : '';
+                    var msgIdAttr = 'data-msg-id="' + value.id + '"';
+                    var uidAttr = 'data-uid="' + value.user_id + '"';
+                    
                     if ( value.user_id == $("#body-room").attr("data-uid") )
                     {
                         $('#chat-list-li-top').after(
-                            '<li class="right"><img src="/static/images/user/' +
+                            '<li class="right" ' + msgIdAttr + ' ' + uidAttr + '><img src="/static/images/user/' +
                             value.avatar_id +
                             '.png" alt=""><b>' +
                             value.username +
                             '</b><i>' +
                             value.created_at +
-                            '</i><div class="aaa">' +
-                            value.content+
+                            '</i><div class="aaa ' + withdrawnClass + '">' +
+                            contentHtml +
                             '</div></li>');
                     }else{
                         $('#chat-list-li-top').after(
-                            '<li class="left"><img src="/static/images/user/' +
+                            '<li class="left" ' + msgIdAttr + ' ' + uidAttr + '><img src="/static/images/user/' +
                             value.avatar_id +
                             '.png" alt=""><b>' +
                             value.username +
                             '</b><i>' +
                             value.created_at +
-                            '</i><div class="aaa">' +
-                            value.content+
+                            '</i><div class="aaa ' + withdrawnClass + '">' +
+                            contentHtml +
                             '</div></li>');
                     }
 

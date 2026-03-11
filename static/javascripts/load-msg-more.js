@@ -23,7 +23,7 @@ $(document).ready(function(){
                     if ( value.user_id == $("#body-room").attr("data-uid") )
                     {
                         $('#chat-list-li-top').after(
-                            '<li class="right"><img src="/static/images/user/' +
+                            '<li class="right" data-msg-id="' + (value.id || '') + '"><img src="/static/images/user/' +
                             value.avatar_id +
                             '.png" alt=""><b>' +
                             value.username +
@@ -34,7 +34,7 @@ $(document).ready(function(){
                             '</div></li>');
                     }else{
                         $('#chat-list-li-top').after(
-                            '<li class="left"><img src="/static/images/user/' +
+                            '<li class="left" data-msg-id="' + (value.id || '') + '"><img src="/static/images/user/' +
                             value.avatar_id +
                             '.png" alt=""><b>' +
                             value.username +

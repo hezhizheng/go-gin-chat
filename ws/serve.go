@@ -70,6 +70,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5  // 私聊
+const msgTypeRecall = 6       // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -123,6 +124,44 @@ func mainProcess(c *websocket.Conn) {
 			if toC != nil {
 				toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 			}
+		}
+
+		if clientMsg.Status == msgTypeRecall {
+			// 处理撤回消息
+			msgIdFloat := clientMsg.Data.(map[string]interface{})["msg_id"].(float64)
+			msgId := uint(msgIdFloat)
+			uidFloat := clientMsg.Data.(map[string]interface{})["uid"].(float64)
+			intUid := int(uidFloat)
+			username := clientMsg.Data.(map[string]interface{})["username"].(string)
+
+			err := models.RecallMessage(msgId, intUid)
+			if err != nil {
+				// 撤回失败
+				errData := map[string]interface{}{
+					"uid":     uidFloat,
+					"content": err.Error(),
+					"msg_id":  0,
+				}
+				errMsg := msg{Status: msgTypeRecall, Data: errData}
+				errMsgStr, _ := json.Marshal(errMsg)
+				c.WriteMessage(websocket.TextMessage, errMsgStr)
+			} else {
+				// 撤回成功，广播
+				_, roomIdInt := getRoomId()
+				recallData := map[string]interface{}{
+					"uid":      uidFloat,
+					"username": username,
+					"room_id":  clientMsg.Data.(map[string]interface{})["room_id"],
+					"msg_id":   msgId,
+					"time":     time.Now().UnixNano() / 1e6,
+				}
+				recallMsg := msg{Status: msgTypeRecall, Data: recallData}
+				recallMsgStr, _ := json.Marshal(recallMsg)
+				for _, con := range rooms[roomIdInt] {
+					con.Conn.WriteMessage(websocket.TextMessage, recallMsgStr)
+				}
+			}
+			continue
 		}
 
 		if clientMsg.Status == msgTypeSend { // 消息发送

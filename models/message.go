@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"gorm.io/gorm"
 	"sort"
 	"strconv"
@@ -37,6 +38,24 @@ func SaveContent(value interface{}) Message {
 
 	ChatDB.Create(&m)
 	return m
+}
+
+// RecallMessage 撤回消息：校验消息所有者和2分钟时效
+func RecallMessage(msgId uint, userId int) error {
+	var m Message
+	if err := ChatDB.Unscoped().First(&m, msgId).Error; err != nil {
+		return errors.New("消息不存在")
+	}
+	if m.UserId != userId {
+		return errors.New("只能撤回自己的消息")
+	}
+	if time.Since(m.CreatedAt) > 2*time.Minute {
+		return errors.New("超过2分钟，无法撤回")
+	}
+	if m.DeletedAt.Valid {
+		return errors.New("消息已被撤回")
+	}
+	return ChatDB.Delete(&m).Error
 }
 
 func GetLimitMsg(roomId string,offset int) []map[string]interface{} {

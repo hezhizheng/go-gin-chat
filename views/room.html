@@ -155,7 +155,7 @@
                     if (received_msg.status == 5 && received_msg.data.uid == uid)
                     {
                         body.find('.main .chat_info').html(body.find('.main .chat_info').html() +
-                            '<li class="left"><img src="/static/images/user/' +
+                            '<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
                             received_msg.data.avatar_id +
                             '.png" alt=""><b>' +
                             received_msg.data.username +
@@ -166,6 +166,13 @@
                             '</div></li>');
                     }else if (received_msg.status == 5){
                         layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+                    } else if (received_msg.status == 6) {
+                        // 撤回消息
+                        if (received_msg.success) {
+                            body.find('li[data-msg-id="' + received_msg.msg_id + '"]').each(function() {
+                                $(this).find('.aaa').html('<span style="color: #999; font-style: italic;">消息已撤回</span>');
+                            });
+                        }
                     }
                 }
 

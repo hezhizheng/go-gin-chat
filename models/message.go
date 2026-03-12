@@ -15,6 +15,7 @@ type Message struct {
 	RoomId    int
 	Content   string
 	ImageUrl  string
+	IsDeleted bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -24,6 +25,7 @@ func SaveContent(value interface{}) Message {
 	m.UserId = value.(map[string]interface{})["user_id"].(int)
 	m.ToUserId = value.(map[string]interface{})["to_user_id"].(int)
 	m.Content = value.(map[string]interface{})["content"].(string)
+	m.IsDeleted = false
 
 	roomIdStr := value.(map[string]interface{})["room_id"].(string)
 
@@ -47,6 +49,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Joins("INNER Join users on users.id = messages.user_id").
 		Where("messages.room_id = " + roomId).
 		Where("messages.to_user_id = 0").
+		Where("messages.is_deleted = ?", false).
 		Order("messages.id desc").
 		Offset(offset).
 		Limit(100).
@@ -72,6 +75,7 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 			" or " +
 			"(" + "messages.user_id = " + toUId + " and messages.to_user_id=" + uid + ")" +
 			")").
+		Where("messages.is_deleted = ?", false).
 		Order("messages.id desc").
 		Offset(offset).
 		Limit(100).
@@ -84,4 +88,24 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 	}
 
 	return results
+}
+
+func DeleteMessage(msgId uint, userId int) bool {
+	var message Message
+	result := ChatDB.First(&message, msgId)
+	if result.Error != nil {
+		return false
+	}
+
+	if message.UserId != userId {
+		return false
+	}
+
+	if time.Since(message.CreatedAt) > 2*time.Minute {
+		return false
+	}
+
+	message.IsDeleted = true
+	ChatDB.Save(&message)
+	return true
 }

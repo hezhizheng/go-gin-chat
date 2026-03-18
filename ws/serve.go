@@ -2,21 +2,22 @@ package ws
 
 import (
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"go-gin-chat/models"
 	"log"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 type Serve struct {
 	ServeInterface
 }
 
-func (serve *Serve) RunWs(gin *gin.Context)  {
+func (serve *Serve) RunWs(gin *gin.Context) {
 	Run(gin)
 }
 
@@ -24,7 +25,7 @@ func (serve *Serve) GetOnlineUserCount() int {
 	return GetOnlineUserCount()
 }
 
-func (serve *Serve) GetOnlineRoomUserCount(roomId int) int  {
+func (serve *Serve) GetOnlineRoomUserCount(roomId int) int {
 	return GetOnlineRoomUserCount(roomId)
 }
 
@@ -69,7 +70,8 @@ const msgTypeOnline = 1        // 上线
 const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
-const msgTypePrivateChat = 5  // 私聊
+const msgTypePrivateChat = 5   // 私聊
+const msgTypeDelete = 6        // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -133,6 +135,11 @@ func mainProcess(c *websocket.Conn) {
 			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
 			c.WriteMessage(websocket.TextMessage, serveMsgStr)
 			continue
+		}
+
+		if clientMsg.Status == msgTypeDelete {
+			serveMsgStr = formatServeMsgStr(msgTypeDelete)
+			notify(c, string(serveMsgStr))
 		}
 
 		//log.Println("serveMsgStr", string(serveMsgStr))
@@ -246,9 +253,10 @@ func formatServeMsgStr(status int) []byte {
 		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
 		intUid, _ := strconv.Atoi(stringUid)
 
+		var savedMsg models.Message
 		if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data["content"],
@@ -256,19 +264,33 @@ func formatServeMsgStr(status int) []byte {
 				"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"room_id":    data["room_id"],
 				"content":    data["content"],
 			})
 		}
+		// 添加消息ID到返回数据中
+		data["msg_id"] = savedMsg.ID
 
 	}
 
 	if status == msgTypeGetOnlineUser {
 		data["count"] = GetOnlineRoomUserCount(roomIdInt)
 		data["list"] = onLineUserList(roomIdInt)
+	}
+
+	if status == msgTypeDelete {
+		msgIdStr := clientMsg.Data.(map[string]interface{})["msg_id"].(string)
+		msgId, _ := strconv.ParseUint(msgIdStr, 10, 32)
+
+		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+		intUid, _ := strconv.Atoi(stringUid)
+
+		success := models.DeleteMessage(uint(msgId), intUid)
+		data["msg_id"] = msgId
+		data["success"] = success
 	}
 
 	jsonStrServeMsg := msg{

@@ -33,16 +33,18 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid        string        `json:"uid"`
+	Username   string        `json:"username"`
+	AvatarId   string        `json:"avatar_id"`
+	ToUid      string        `json:"to_uid"`
+	Content    string        `json:"content"`
+	ImageUrl   string        `json:"image_url"`
+	RoomId     string        `json:"room_id"`
+	Count      int           `json:"count"`
+	List       []interface{} `json:"list"`
+	Time       int64         `json:"time"`
+	MsgId      uint          `json:"msg_id"`      // 消息ID，用于撤回
+	IsRecalled int           `json:"is_recalled"` // 是否已撤回
 }
 
 // client & serve 的消息体
@@ -89,6 +91,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -275,6 +278,17 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeRecall:
+				// 撤回消息需要广播给所有相关用户
+				chNotify <- 1
+				if cl.Data.IsRecalled == 1 {
+					// 撤回成功，广播给所有用户
+					notifyRecall(cl.Conn, string(serveMsgStr))
+				} else {
+					// 撤回失败，只通知发送者
+					cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+				}
+				<-chNotify
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -362,6 +376,21 @@ func notify(conn *websocket.Conn, msg string) {
 	<-chNotify
 }
 
+// 广播撤回消息通知（包括发送者）
+func notifyRecall(conn *websocket.Conn, msg string) {
+	// 读取clientMsg需要加锁
+	clientMsgLock.Lock()
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	roomIdInt, _ := strconv.Atoi(roomId)
+	assignRoom := rooms[roomIdInt]
+	for _, con := range assignRoom {
+		// 广播给房间内所有用户，包括发送者
+		con.(wsClients).Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	}
+}
+
 // 离线通知
 func disconnect(conn *websocket.Conn) {
 	// 从 rooms 中移除客户端
@@ -427,6 +456,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	content := clientMsg.Data.Content
 	toUidStr := clientMsg.Data.ToUid
 	imageUrl := clientMsg.Data.ImageUrl
+	msgId := clientMsg.Data.MsgId
 	clientMsgLock.Unlock()
 
 	roomIdInt, _ := strconv.Atoi(roomId)
@@ -454,9 +484,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,7 +495,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -472,6 +503,23 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 			})
 		}
 
+		// 设置消息ID，用于后续撤回
+		data.MsgId = savedMsg.ID
+	}
+
+	if status == msgTypeRecall {
+		// 撤回消息
+		data.MsgId = msgId
+		intUid, _ := strconv.Atoi(uid)
+		success, errMsg := models.RecallMessage(msgId, intUid)
+		if success {
+			data.Content = "消息已被撤回"
+			data.IsRecalled = 1
+		} else {
+			// 撤回失败，发送错误消息给发送者
+			data.Content = errMsg
+			data.IsRecalled = -1 // -1 表示撤回失败
+		}
 	}
 
 	if status == msgTypeGetOnlineUser {

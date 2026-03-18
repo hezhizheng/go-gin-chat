@@ -65,30 +65,36 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" id="msg-{{ .id }}" data-msg-id="{{ .id }}" data-is-recalled="{{ .is_recalled }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
-                            {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
+                            {{ if eq .is_recalled 1 }}
+                                <div><span style="color: #999; font-style: italic;">消息已被撤回</span></div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div>{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                    <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                            {{end}}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" id="msg-{{ .id }}" data-msg-id="{{ .id }}" data-is-recalled="{{ .is_recalled }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
-                            {{ if eq .image_url $nullSrl }}
-
-                                <div>{{ .content }}</div>
-                            {{else}}
-                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            {{ if eq .is_recalled 1 }}
+                                <div><span style="color: #999; font-style: italic;">消息已被撤回</span></div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div>{{ .content }}</div>
+                                {{else}}
+                                    <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{end}}
                             {{end}}
                         </li>
 
@@ -148,7 +154,38 @@
 
         // 滚动到底部
         toLow();
+
+        // 为历史消息绑定右键撤回事件
+        bindHistoryMessageRecall();
     });
+
+    // 绑定历史消息的右键撤回事件
+    function bindHistoryMessageRecall() {
+        let currentUid = {{ .user_info.uid }};
+        let now = new Date().getTime();
+
+        $('.chat_info li.right').each(function() {
+            let $this = $(this);
+            let msgId = parseInt($this.attr('data-msg-id'));
+            let isRecalled = parseInt($this.attr('data-is-recalled'));
+
+            if (isRecalled === 1 || !msgId) {
+                return; // 已撤回的消息不绑定
+            }
+
+            // 从时间字符串解析发送时间
+            let timeStr = $this.find('i').text();
+            let sendTime = new Date(timeStr).getTime();
+
+            // 检查是否在2分钟内
+            if (now - sendTime <= 2 * 60 * 1000) {
+                $this.on('contextmenu', function(e) {
+                    e.preventDefault();
+                    showRecallMenu($this, msgId, sendTime);
+                });
+            }
+        });
+    }
 </script>
 
 <script>

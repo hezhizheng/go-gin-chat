@@ -391,4 +391,31 @@ ul{
 	color: #afa;
 }
 
+/* 撤回消息相关样式 */
+.room .chat_info .recall-btn {
+	font-size: 12px;
+	color: #999;
+	cursor: pointer;
+	margin-left: 10px;
+	padding: 2px 6px;
+	background-color: rgba(255,255,255,0.5);
+	border-radius: 3px;
+	display: none;
+}
+
+.room .chat_info .recall-btn:hover {
+	color: #666;
+	background-color: rgba(255,255,255,0.8);
+}
+
+.room .chat_info .right:hover .recall-btn {
+	display: inline-block;
+}
+
+.room .chat_info .recalled-msg {
+	color: #999;
+	font-style: italic;
+	background-color: rgba(200,200,200,0.3) !important;
+}
+
 

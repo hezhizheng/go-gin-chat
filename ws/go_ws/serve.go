@@ -33,16 +33,18 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid        string        `json:"uid"`
+	Username   string        `json:"username"`
+	AvatarId   string        `json:"avatar_id"`
+	ToUid      string        `json:"to_uid"`
+	Content    string        `json:"content"`
+	ImageUrl   string        `json:"image_url"`
+	RoomId     string        `json:"room_id"`
+	Count      int           `json:"count"`
+	List       []interface{} `json:"list"`
+	Time       int64         `json:"time"`
+	MsgId      uint          `json:"msg_id"`      // 消息ID
+	IsRecalled int           `json:"is_recalled"` // 是否已撤回
 }
 
 // client & serve 的消息体
@@ -89,6 +91,8 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 撤回消息
+const msgTypeRecallNotify = 7  // 撤回消息通知
 
 const roomCount = 6 // 房间总数
 
@@ -275,6 +279,12 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeRecall:
+				// 处理撤回消息
+				handleRecallMessage(cl)
+			case msgTypeRecallNotify:
+				// 广播撤回消息通知
+				notify(cl.Conn, string(serveMsgStr))
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -454,9 +464,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,7 +475,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -472,6 +483,8 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 			})
 		}
 
+		// 将消息ID添加到数据中，以便前端可以撤回
+		data.MsgId = savedMsg.ID
 	}
 
 	if status == msgTypeGetOnlineUser {
@@ -498,6 +511,76 @@ func getRoomId() (string, int) {
 
 	roomIdInt, _ := strconv.Atoi(roomId)
 	return roomId, roomIdInt
+}
+
+// handleRecallMessage 处理撤回消息
+func handleRecallMessage(cl msg) {
+	// 读取需要的数据
+	clientMsgLock.Lock()
+	msgId := clientMsg.Data.MsgId
+	uid := clientMsg.Data.Uid
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	intUid, _ := strconv.Atoi(uid)
+
+	// 调用模型层撤回消息
+	success, msgStr := models.RecallMessage(msgId, intUid)
+
+	if success {
+		// 获取撤回后的消息
+		message, _ := models.GetMessageById(msgId)
+
+		// 构建撤回通知消息
+		data := msgData{
+			Uid:        uid,
+			Username:   cl.Data.Username,
+			AvatarId:   cl.Data.AvatarId,
+			RoomId:     roomId,
+			MsgId:      msgId,
+			Content:    "该消息已被撤回",
+			IsRecalled: 1,
+			Time:       time.Now().UnixNano() / 1e6,
+		}
+
+		jsonStrServeMsg := msg{
+			Status: msgTypeRecallNotify,
+			Data:   data,
+			Conn:   cl.Conn,
+		}
+
+		serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
+
+		// 广播撤回通知
+		roomIdInt, _ := strconv.Atoi(roomId)
+		chNotify <- 1
+		assignRoom := rooms[roomIdInt]
+		for _, con := range assignRoom {
+			con.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+		}
+		<-chNotify
+
+		log.Println("消息撤回成功:", message.ID)
+	} else {
+		// 撤回失败，发送错误消息给发起者
+		data := msgData{
+			Content: msgStr,
+		}
+
+		jsonStrServeMsg := msg{
+			Status: -2, // 错误状态码
+			Data:   data,
+			Conn:   cl.Conn,
+		}
+
+		serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
+
+		chNotify <- 1
+		cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+		<-chNotify
+
+		log.Println("消息撤回失败:", msgStr)
+	}
 }
 
 // =======================对外方法=====================================

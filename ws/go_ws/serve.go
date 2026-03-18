@@ -89,6 +89,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeDelete = 6        // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -262,7 +263,7 @@ func write(done <-chan struct{}) {
 		case cl := <-sMsg:
 			serveMsgStr, _ := json.Marshal(cl)
 			switch cl.Status {
-			case msgTypeOnline, msgTypeSend:
+			case msgTypeOnline, msgTypeSend, msgTypeDelete:
 				notify(cl.Conn, string(serveMsgStr))
 			case msgTypeGetOnlineUser:
 				chNotify <- 1
@@ -355,9 +356,8 @@ func notify(conn *websocket.Conn, msg string) {
 	roomIdInt, _ := strconv.Atoi(roomId)
 	assignRoom := rooms[roomIdInt]
 	for _, con := range assignRoom {
-		if con.(wsClients).RemoteAddr != conn.RemoteAddr().String() {
-			con.(wsClients).Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-		}
+		// 不再排除发送者自身，这样发起撤回的人也能收到成功回执
+		con.(wsClients).Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	}
 	<-chNotify
 }
@@ -478,6 +478,23 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		ro := rooms[roomIdInt]
 		data.Count = len(ro)
 		data.List = ro
+	}
+
+	if status == msgTypeDelete {
+		// 读取clientMsg需要加锁
+		clientMsgLock.Lock()
+		msgIdStr := clientMsg.Data.Content // 假设消息ID存储在content字段中
+		clientMsgLock.Unlock()
+
+		msgId, _ := strconv.ParseUint(msgIdStr, 10, 32)
+		intUid, _ := strconv.Atoi(uid)
+
+		success := models.DeleteMessage(uint(msgId), intUid)
+		data.Content = msgIdStr // 存储消息ID
+		data.Count = 0          // 用于存储成功状态
+		if success {
+			data.Count = 1
+		}
 	}
 
 	jsonStrServeMsg := msg{

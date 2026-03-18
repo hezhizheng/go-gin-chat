@@ -304,6 +304,27 @@ ul{
 	border-radius: 20px;
 	font-size: 12px;
 }
+
+/* 撤回按钮样式 */
+.room .chat_info .withdraw-btn {
+	font-size: 12px;
+	color: #999;
+	margin-left: 10px;
+	cursor: pointer;
+	text-decoration: none;
+	display: inline-block;
+}
+
+.room .chat_info .withdraw-btn:hover {
+	color: #ff6b6b;
+}
+
+/* 撤回消息样式 */
+.room .chat_info .message-withdrawn {
+	color: #999;
+	font-style: italic;
+	font-size: 14px;
+}
 .room .input{
 	/*position: fixed;*/
 	/*bottom: 0;*/

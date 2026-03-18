@@ -2,21 +2,22 @@ package ws
 
 import (
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"go-gin-chat/models"
 	"log"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 type Serve struct {
 	ServeInterface
 }
 
-func (serve *Serve) RunWs(gin *gin.Context)  {
+func (serve *Serve) RunWs(gin *gin.Context) {
 	Run(gin)
 }
 
@@ -24,7 +25,7 @@ func (serve *Serve) GetOnlineUserCount() int {
 	return GetOnlineUserCount()
 }
 
-func (serve *Serve) GetOnlineRoomUserCount(roomId int) int  {
+func (serve *Serve) GetOnlineRoomUserCount(roomId int) int {
 	return GetOnlineRoomUserCount(roomId)
 }
 
@@ -69,7 +70,8 @@ const msgTypeOnline = 1        // 上线
 const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
-const msgTypePrivateChat = 5  // 私聊
+const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -129,6 +131,10 @@ func mainProcess(c *websocket.Conn) {
 			serveMsgStr = formatServeMsgStr(msgTypeSend)
 		}
 
+		if clientMsg.Status == msgTypeRecall { // 消息撤回
+			serveMsgStr = formatServeMsgStr(msgTypeRecall)
+		}
+
 		if clientMsg.Status == msgTypeGetOnlineUser {
 			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
 			c.WriteMessage(websocket.TextMessage, serveMsgStr)
@@ -136,7 +142,7 @@ func mainProcess(c *websocket.Conn) {
 		}
 
 		//log.Println("serveMsgStr", string(serveMsgStr))
-		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
+		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline || clientMsg.Status == msgTypeRecall {
 			notify(c, string(serveMsgStr))
 		}
 	}
@@ -269,6 +275,11 @@ func formatServeMsgStr(status int) []byte {
 	if status == msgTypeGetOnlineUser {
 		data["count"] = GetOnlineRoomUserCount(roomIdInt)
 		data["list"] = onLineUserList(roomIdInt)
+	}
+
+	if status == msgTypeRecall {
+		data["message_id"] = clientMsg.Data.(map[string]interface{})["message_id"]
+		data["avatar_id"] = clientMsg.Data.(map[string]interface{})["avatar_id"]
 	}
 
 	jsonStrServeMsg := msg{

@@ -70,6 +70,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5  // 私聊
+const msgTypeRecall = 6        // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -126,19 +127,29 @@ func mainProcess(c *websocket.Conn) {
 		}
 
 		if clientMsg.Status == msgTypeSend { // 消息发送
-			serveMsgStr = formatServeMsgStr(msgTypeSend)
-		}
+		serveMsgStr = formatServeMsgStr(msgTypeSend)
+	}
 
-		if clientMsg.Status == msgTypeGetOnlineUser {
-			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
-			c.WriteMessage(websocket.TextMessage, serveMsgStr)
-			continue
-		}
+	if clientMsg.Status == msgTypeGetOnlineUser {
+		serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
+		c.WriteMessage(websocket.TextMessage, serveMsgStr)
+		continue
+	}
 
-		//log.Println("serveMsgStr", string(serveMsgStr))
-		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
+	if clientMsg.Status == msgTypeRecall {
+		// 处理消息撤回
+		serveMsgStr = formatServeMsgStr(msgTypeRecall)
+		if len(serveMsgStr) > 0 {
+			// 发送撤回通知给房间内所有人
 			notify(c, string(serveMsgStr))
 		}
+		continue
+	}
+
+	//log.Println("serveMsgStr", string(serveMsgStr))
+	if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
+		notify(c, string(serveMsgStr))
+	}
 	}
 }
 
@@ -248,22 +259,42 @@ func formatServeMsgStr(status int) []byte {
 
 		if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			msg := models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data["content"],
 				"room_id":    data["room_id"],
 				"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
 			})
+			// 将消息ID返回给客户端
+			data["message_id"] = msg.ID
 		} else {
-			models.SaveContent(map[string]interface{}{
+			msg := models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"room_id":    data["room_id"],
 				"content":    data["content"],
 			})
+			// 将消息ID返回给客户端
+			data["message_id"] = msg.ID
 		}
 
+	} else if status == msgTypeRecall {
+		// 处理消息撤回
+		messageIdStr := clientMsg.Data.(map[string]interface{})["message_id"].(string)
+		messageId, _ := strconv.ParseUint(messageIdStr, 10, 32)
+		
+		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+		intUid, _ := strconv.Atoi(stringUid)
+		
+		// 调用模型中的RecallMessage函数
+		success := models.RecallMessage(uint(messageId), intUid)
+		if success {
+			data["message_id"] = messageId
+			data["recall_success"] = true
+		} else {
+			return []byte{} // 如果撤回失败，不发送任何消息
+		}
 	}
 
 	if status == msgTypeGetOnlineUser {

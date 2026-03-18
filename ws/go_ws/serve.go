@@ -33,16 +33,18 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid        string        `json:"uid"`
+	Username   string        `json:"username"`
+	AvatarId   string        `json:"avatar_id"`
+	ToUid      string        `json:"to_uid"`
+	Content    string        `json:"content"`
+	ImageUrl   string        `json:"image_url"`
+	RoomId     string        `json:"room_id"`
+	Count      int           `json:"count"`
+	List       []interface{} `json:"list"`
+	Time       int64         `json:"time"`
+	MsgId      string        `json:"msg_id"`      // 消息ID，用于撤回
+	IsRecalled int           `json:"is_recalled"` // 是否已撤回
 }
 
 // client & serve 的消息体
@@ -89,6 +91,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -275,6 +278,10 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeRecall:
+				chNotify <- 1
+				handleRecallMessage(cl)
+				<-chNotify
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -454,9 +461,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,13 +472,16 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
+
+		// 设置消息ID，用于后续撤回
+		data.MsgId = strconv.Itoa(int(savedMsg.ID))
 
 	}
 
@@ -498,6 +509,75 @@ func getRoomId() (string, int) {
 
 	roomIdInt, _ := strconv.Atoi(roomId)
 	return roomId, roomIdInt
+}
+
+// handleRecallMessage 处理消息撤回
+func handleRecallMessage(cl msg) {
+	clientMsgLock.Lock()
+	msgId := cl.Data.MsgId
+	uid := cl.Data.Uid
+	roomId := cl.Data.RoomId
+	toUid := cl.Data.ToUid
+	clientMsgLock.Unlock()
+
+	intUid, _ := strconv.Atoi(uid)
+	intToUid, _ := strconv.Atoi(toUid)
+
+	// 调用模型层撤回消息
+	recalledMsgId, _, _, err := models.RecallMessage(msgId, intUid)
+	if err != nil || recalledMsgId == 0 {
+		// 撤回失败，发送错误消息给发送者
+		errorData := msgData{
+			Uid:     uid,
+			Content: "消息撤回失败：超过2分钟或无权撤回",
+			Time:    time.Now().UnixNano() / 1e6,
+		}
+		errorMsg := msg{
+			Status: -2, // 撤回失败状态码
+			Data:   errorData,
+			Conn:   cl.Conn,
+		}
+		errorMsgStr, _ := json.Marshal(errorMsg)
+		cl.Conn.WriteMessage(websocket.TextMessage, errorMsgStr)
+		return
+	}
+
+	// 撤回成功
+	recallData := msgData{
+		Uid:        uid,
+		MsgId:      msgId,
+		RoomId:     roomId,
+		ToUid:      toUid,
+		IsRecalled: 1,
+		Time:       time.Now().UnixNano() / 1e6,
+	}
+	recallMsg := msg{
+		Status: msgTypeRecall,
+		Data:   recallData,
+		Conn:   cl.Conn,
+	}
+	recallMsgStr, _ := json.Marshal(recallMsg)
+
+	// 如果是私聊消息，只发送给双方
+	if intToUid > 0 {
+		// 私聊撤回
+		roomIdInt, _ := strconv.Atoi(roomId)
+		assignRoom := rooms[roomIdInt]
+		for _, con := range assignRoom {
+			conUid, _ := strconv.Atoi(con.(wsClients).Uid)
+			// 只发送给发送者和接收者
+			if conUid == intUid || conUid == intToUid {
+				con.(wsClients).Conn.WriteMessage(websocket.TextMessage, recallMsgStr)
+			}
+		}
+	} else {
+		// 群聊撤回，广播给房间内所有用户
+		roomIdInt, _ := strconv.Atoi(roomId)
+		assignRoom := rooms[roomIdInt]
+		for _, con := range assignRoom {
+			con.(wsClients).Conn.WriteMessage(websocket.TextMessage, recallMsgStr)
+		}
+	}
 }
 
 // =======================对外方法=====================================

@@ -5,18 +5,20 @@
 * @Last Modified time: 2015-10-05 21:07:47
 */
 
- /*                                                                  全局                      */
+/*                                                                  全局                      */
 
-.login{
+.login {
 	background: url('../images/login_bg.jpg') no-repeat fixed top;
 	background-size: cover;
 }
-.rooms{
+
+.rooms {
 
 	background: url('../images/theme/1_bg.jpg') no-repeat fixed top;
 	background-size: cover;
 }
-.room{
+
+.room {
 	background: url('../images/theme/12_mh.jpg') no-repeat fixed top;
 	background-size: cover
 }
@@ -24,7 +26,7 @@
 
 
 
-body>.scrollbar-macosx{
+body>.scrollbar-macosx {
 	position: absolute;
 	width: 100%;
 	height: 100%;
@@ -32,26 +34,30 @@ body>.scrollbar-macosx{
 	left: 0;
 	overflow: hidden;
 }
-a{
+
+a {
 	cursor: pointer;
 	color: #eee;
 	text-decoration: none;
 }
-a:hover{
+
+a:hover {
 	color: #fff;
 	text-decoration: none;
 }
-ul{
+
+ul {
 	list-style: none;
 	padding: 0;
 	margin: 0;
 }
-.container{
+
+.container {
 	margin-top: 35px;
 	max-width: 992px;
 }
 
-.header{
+.header {
 	position: fixed;
 	z-index: 7778;
 	width: 100%;
@@ -59,22 +65,26 @@ ul{
 	background: url('../images/header_bg.png') repeat-x;
 	color: #eee;
 }
-.header .toptext{
+
+.header .toptext {
 	line-height: 35px;
 	padding: 0 15px;
 	float: left;
 }
-.header .topnavlist{
+
+.header .topnavlist {
 	float: right;
 }
-.header .topnavlist>li{
+
+.header .topnavlist>li {
 	/*width: 75px;*/
 	height: 35px;
 	line-height: 35px;
 	text-align: center;
 	float: left;
 }
-.header .topnavlist li a{
+
+.header .topnavlist li a {
 	display: block;
 	position: relative;
 	z-index: 8889;
@@ -82,7 +92,8 @@ ul{
 	margin-right: 15px;
 	height: 35px;
 }
-.header .popover{
+
+.header .popover {
 	position: relative;
 	z-index: 8889;
 	left: -235px;
@@ -90,60 +101,75 @@ ul{
 	max-width: 300px;
 	width: 300px;
 }
-.header .popover-content{
+
+.header .popover-content {
 	text-align: center;
 	padding: 0;
 }
-.header .userinfo .popover{
+
+.header .userinfo .popover {
 	left: -160px;
 }
-.header .userinfo .popover .arrow{
+
+.header .userinfo .popover .arrow {
 	margin-left: 45px;
 }
-.header .userinfo .user_portrait{
+
+.header .userinfo .user_portrait {
 	padding-top: 10px;
 }
-.header .userinfo .user_portrait img{
+
+.header .userinfo .user_portrait img {
 	width: 100px;
 	height: 100px;
 }
+
 .login .select_portrait img,
-.header .userinfo .select_portrait img{
+.header .userinfo .select_portrait img {
 	width: 18px;
 	height: 18px;
 	opacity: .5;
 	cursor: pointer;
 }
+
 .login .select_portrait .t,
-.header .userinfo .select_portrait .t{
+.header .userinfo .select_portrait .t {
 	opacity: 1;
 }
+
 .login .select_portrait img:hover,
-.header .userinfo .select_portrait img:hover{
+.header .userinfo .select_portrait img:hover {
 	opacity: 1;
 }
-.header .userinfo .user_name{
+
+.header .userinfo .user_name {
 	padding: 0 5px;
 }
-.header .userinfo .user_name input{
+
+.header .userinfo .user_name input {
 	margin-bottom: 10px;
 }
+
 .header .userinfo .user_name input,
-.header .userinfo .user_name button{
+.header .userinfo .user_name button {
 	border-radius: 0;
 }
-.header .theme .popover{
+
+.header .theme .popover {
 	left: -235px;
 }
-.header .theme .popover .arrow{
+
+.header .theme .popover .arrow {
 	margin-left: 115px;
 }
-.header .theme .popover img{
+
+.header .theme .popover img {
 	margin: 5px;
 	width: 80px;
 	height: 65px;
 }
-.header .theme .popover img:hover{
+
+.header .theme .popover img:hover {
 	position: relative;
 	top: -3px;
 	box-shadow: 0 3px 15px #000;
@@ -153,74 +179,84 @@ ul{
 
 
 
-.header li.userlist{
+.header li.userlist {
 	width: 100px;
 }
-.header .userlist .popover{
+
+.header .userlist .popover {
 	left: -150px;
 	width: 300px;
 }
-.header .userlist .popover-content{
+
+.header .userlist .popover-content {
 	max-height: 400px;
 }
-.header .userlist .popover .arrow{
+
+.header .userlist .popover .arrow {
 	margin-left: 20px;
 }
-.header .userlist .popover li{
+
+.header .userlist .popover li {
 	text-align: left;
 	height: 35px;
 	line-height: 35px;
 	padding: 0 5px;
 }
-.header .userlist .popover li:hover{
+
+.header .userlist .popover li:hover {
 	background-color: #bbb;
 	cursor: pointer;
 }
-.header .userlist .popover li img{
+
+.header .userlist .popover li img {
 	width: 25px;
 	height: 25px;
 }
-.header .clapboard{
+
+.header .clapboard {
 	position: fixed;
 	z-index: 8888;
 	width: 100%;
 	height: 100%;
 	top: 0;
 	left: 0;
-	background-color: rgba(0,0,0,0.5);
+	background-color: rgba(0, 0, 0, 0.5);
 }
 
- /*  -------------------------------------------------------login------------------------------- */
+/*  -------------------------------------------------------login------------------------------- */
 
-.login .jumbotron{
+.login .jumbotron {
 	background: none;
 	text-align: center;
 }
 
 
 
-.login .input-group{
+.login .input-group {
 	margin: 30px auto;
 	max-width: 300px;
 }
 
-.login .input-group input{
+.login .input-group input {
 	margin: 10px auto;
 }
 
-.login input:hover{
+.login input:hover {
 	background-color: #fff;
 	box-shadow: none;
 }
-.login .input-group .btn{
+
+.login .input-group .btn {
 	border-left: none;
 }
-.login .input-group .btn:hover{
+
+.login .input-group .btn:hover {
 	background-color: #fff;
 	box-shadow: none;
 	border-color: #ccc;
 }
-.login .footer{
+
+.login .footer {
 	font-size: 20px;
 	position: fixed;
 	z-index: 8888;
@@ -231,20 +267,21 @@ ul{
 	line-height: 35px;
 	text-align: center;
 	color: #eee;
-	background-color: rgba(0,0,0,.3);
+	background-color: rgba(0, 0, 0, .3);
 }
 
 
-.login .footer span{
+.login .footer span {
 	color: #f00;
 }
 
 
- /*  -------------------------------------------------------rooms------------------------------- */
+/*  -------------------------------------------------------rooms------------------------------- */
 
-.rooms .room_list{
+.rooms .room_list {
 	margin-top: 35px;
 }
+
 .rooms .room_list a>span {
 	position: absolute;
 	bottom: 30px;
@@ -253,50 +290,71 @@ ul{
 }
 
 
- /*  -------------------------------------------------------room------------------------------- */
+/*  -------------------------------------------------------room------------------------------- */
 
-.room .chat_info{
+.room .chat_info {
 	margin-bottom: 115px;
 }
-.room .chat_info li{
+
+.room .chat_info li {
 	margin-top: 15px;
 	overflow: hidden;
 }
-.room .chat_info li>img{
+
+.room .chat_info li>img {
 	width: 50px;
 	height: 50px;
 	margin: 0 5px;
 }
-.room .chat_info i{
+
+.room .chat_info i {
 	display: block;
 	margin-bottom: 10px;
 }
-.room .chat_info div{
+
+.room .chat_info div {
 	text-align: left;
 	padding: 5px;
 	background-color: #D0D7DF;
 	margin: 0 60px;
 	word-break: break-all;
 }
-.room .chat_info div>img{
+
+.room .chat_info div>img {
 	max-width: 100%;
 	max-height: 250px;
 }
-.room .chat_info .left{
+
+.room .chat_info .left {
 	text-align: left;
 }
-.room .chat_info .right{
+
+.room .chat_info .right {
 	text-align: right;
 }
-.room .chat_info  .left img,
-.room .chat_info .left div{
+
+.room .chat_info .left img,
+.room .chat_info .left div {
 	float: left;
 }
+
 .room .chat_info .right>img,
-.room .chat_info .right>div{
+.room .chat_info .right>div {
 	float: right;
 }
-.room .chat_info .systeminfo span{
+
+.room .chat_info .recall-btn {
+	font-size: 12px;
+	color: #999;
+	margin-left: 10px;
+	cursor: pointer;
+}
+
+.room .chat_info .recall-btn:hover {
+	color: #f00;
+}
+
+.room .chat_info .systeminfo span {
 	display: block;
 	width: 200px;
 	margin: 0 auto;
@@ -304,14 +362,16 @@ ul{
 	border-radius: 20px;
 	font-size: 12px;
 }
-.room .input{
+
+.room .input {
 	/*position: fixed;*/
 	/*bottom: 0;*/
 	z-index: 7777;
 	width: 100%;
 	/*pointer-events: none;*/
 }
-.room .input .center{
+
+.room .input .center {
 	max-width: 910px;
 	width: 100%;
 	height: 110px;
@@ -322,73 +382,80 @@ ul{
 	left: 50%;
 	transform: translateX(-50%);
 }
-.room .input .tools{
+
+.room .input .tools {
 	height: 10px;
 	line-height: 10px;
 	margin-bottom: 10px;
 	margin-left: 15px;
 }
-.room .input .tools span{
+
+.room .input .tools span {
 	padding: 15px;
 	cursor: pointer;
 	color: #eee;
 	font-size: 20px;
 }
-.room .input .tools span:hover{
+
+.room .input .tools span:hover {
 	color: #58f;
 }
 
 
-.room .input .faces{
+.room .input .faces {
 	max-width: 288px;
 	position: relative;
 	top: -265px;
 	left: -1px;
 	z-index: 8889;
 }
-.room .input .faces.popover .arrow{
+
+.room .input .faces.popover .arrow {
 	margin-left: -127px;
 }
-.room .input .faces img:hover{
+
+.room .input .faces img:hover {
 	box-shadow: 0 0 5px #000;
 }
 
 
 
-.room .input .text{
+.room .input .text {
 	margin: 30px 15px 0;
 	/*overflow: hidden;*/
 	height: 34px;
 	line-height: 34px;
 }
-.room .input .text>div{
+
+.room .input .text>div {
 	padding: 0 15px;
 	/*text-align: center;*/
 }
 
-.room .input ._submit{
+.room .input ._submit {
 	margin: 0 15px 0;
 	height: 34px;
 	line-height: 34px;
 }
 
-.room .input ._submit>div{
+.room .input ._submit>div {
 	padding: 0 15px;
 }
 
-.room .input .input .text input{
+.room .input .input .text input {
 	border-radius: 0;
 
 }
-.room .input .text a{
+
+.room .input .text a {
 	font-size: 25px;
 	color: #eee;
 }
-.room .input .text a:visited{
+
+.room .input .text a:visited {
 	color: #eee;
 }
-.room .input .text a:hover{
+
+.room .input .text a:hover {
 	color: #afa;
 }
-
-

@@ -118,6 +118,14 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							'</i><div class="aaa">' +
 							received_msg.data.content +
 							'</div></li>');
+					} else if (received_msg.data.uid == userInfo.uid) {
+						// 对于自己发送的消息，更新消息ID为服务器生成的ID
+						var lastRightMsg = $('.main .chat_info li.right:last');
+						if (lastRightMsg.length > 0) {
+							lastRightMsg.attr('data-msg-id', received_msg.data.msg_id);
+							lastRightMsg.find('.recall-btn').attr('onclick', 'recallMessage(' + received_msg.data.msg_id + ')');
+							console.log("更新消息ID为:", received_msg.data.msg_id);
+						}
 					}
 					break;
 				case -1:
@@ -160,6 +168,22 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					if (!isPrivateChat())
 					{
 						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+					}
+					break;
+				case 6:
+					// 消息撤回
+					console.log("收到撤回消息:", received_msg);
+					if (received_msg.data.success) {
+						// 找到对应的消息并替换为撤回提示
+						var msgElement = $('li[data-msg-id="' + received_msg.data.msg_id + '"]');
+						if (msgElement.length > 0) {
+							msgElement.html('<li class="right"><img src="/static/images/user/' + received_msg.data.avatar_id + '.png" alt=""><b>' + received_msg.data.username + '</b><i>' + _time(received_msg.data.time) + '</i><div class="">消息已撤回</div></li>');
+							console.log("消息撤回成功:", received_msg.data.msg_id);
+						} else {
+							console.log("未找到要撤回的消息:", received_msg.data.msg_id);
+						}
+					} else {
+						console.log("消息撤回失败:", received_msg.data.msg_id);
 					}
 					break;
 				default:
@@ -497,8 +521,31 @@ $(document).ready(function(){
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let msgId = Date.now(); // 生成临时消息ID，实际以服务器返回为准
+			let msgElement = '<li class="right" data-msg-id="' + msgId + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div><span class="recall-btn" onclick="recallMessage(' + msgId + ')">撤回</span></li>';
+			$('.main .chat_info').html($('.main .chat_info').html() + msgElement);
+
+			// 2分钟后自动移除撤回按钮
+			setTimeout(function() {
+				$('li[data-msg-id="' + msgId + '"] .recall-btn').remove();
+			}, 2 * 60 * 1000);
 		}
+	}
+
+	function recallMessage(msgId) {
+		let send_data = JSON.stringify({
+			"status": 6,
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": $('.room').attr('data-room_id'),
+				"msg_id": msgId.toString(),
+				"to_uid": "0"
+			}
+		});
+		console.log("发送撤回请求:", send_data);
+		ws.send(send_data);
 	}
 	$('.text input').keypress(function(e) {
 		if (e.which == 13){

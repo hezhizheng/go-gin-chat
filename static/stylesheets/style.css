@@ -391,4 +391,33 @@ ul{
 	color: #afa;
 }
 
+/* 消息撤回按钮样式 */
+.recall-btn {
+	background-color: rgba(0, 0, 0, 0.5);
+	color: #fff;
+	border: none;
+	padding: 2px 8px;
+	font-size: 12px;
+	border-radius: 3px;
+	cursor: pointer;
+	opacity: 0.7;
+	transition: opacity 0.3s;
+	display: inline-block;
+	margin-left: 10px;
+	vertical-align: middle;
+}
+
+.recall-btn:hover {
+	opacity: 1;
+	background-color: rgba(255, 0, 0, 0.7);
+}
+
+/* 撤回消息的系统提示样式 */
+.recalled-message {
+	text-align: center;
+	color: #999;
+	font-style: italic;
+	padding: 5px;
+}
+
 

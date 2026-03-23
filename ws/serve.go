@@ -70,6 +70,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5  // 私聊
+const msgTypeRecall = 6       // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -133,6 +134,17 @@ func mainProcess(c *websocket.Conn) {
 			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
 			c.WriteMessage(websocket.TextMessage, serveMsgStr)
 			continue
+		}
+
+		if clientMsg.Status == msgTypeRecall {
+			serveMsgStr = formatServeMsgStr(msgTypeRecall)
+			// 通知所有用户，包括消息发送者本人
+			_, roomIdInt := getRoomId()
+			for _, con := range rooms[roomIdInt] {
+				con.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+			}
+			// 同时也向发送者发送响应
+			c.WriteMessage(websocket.TextMessage, serveMsgStr)
 		}
 
 		//log.Println("serveMsgStr", string(serveMsgStr))
@@ -246,9 +258,10 @@ func formatServeMsgStr(status int) []byte {
 		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
 		intUid, _ := strconv.Atoi(stringUid)
 
+		var savedMsg models.Message
 		if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data["content"],
@@ -256,19 +269,36 @@ func formatServeMsgStr(status int) []byte {
 				"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"room_id":    data["room_id"],
 				"content":    data["content"],
 			})
 		}
-
+		// 将数据库生成的消息ID返回给前端
+		data["msg_id"] = savedMsg.ID
+		// 将临时消息ID返回给前端，以便前端更新消息元素
+		if tempMsgId, ok := clientMsg.Data.(map[string]interface{})["temp_msg_id"]; ok {
+			data["temp_msg_id"] = tempMsgId
+		}
 	}
 
 	if status == msgTypeGetOnlineUser {
 		data["count"] = GetOnlineRoomUserCount(roomIdInt)
 		data["list"] = onLineUserList(roomIdInt)
+	}
+
+	if status == msgTypeRecall {
+		msgIdStr := clientMsg.Data.(map[string]interface{})["msg_id"].(string)
+		msgId, _ := strconv.ParseUint(msgIdStr, 10, 32)
+		
+		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+		intUid, _ := strconv.Atoi(stringUid)
+		
+		success := models.DeleteMessage(uint(msgId), intUid)
+		data["msg_id"] = msgId
+		data["success"] = success
 	}
 
 	jsonStrServeMsg := msg{

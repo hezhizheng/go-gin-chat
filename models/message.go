@@ -17,6 +17,7 @@ type Message struct {
 	ImageUrl  string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 func SaveContent(value interface{}) Message {
@@ -84,4 +85,23 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 	}
 
 	return results
+}
+
+func DeleteMessage(msgId uint, userId int) bool {
+	var message Message
+	result := ChatDB.First(&message, msgId)
+	if result.Error != nil {
+		return false
+	}
+	
+	if message.UserId != userId {
+		return false
+	}
+	
+	if time.Since(message.CreatedAt) > 2*time.Minute {
+		return false
+	}
+	
+	ChatDB.Delete(&message)
+	return true
 }

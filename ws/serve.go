@@ -138,7 +138,13 @@ func mainProcess(c *websocket.Conn) {
 
 		if clientMsg.Status == msgTypeRecall {
 			serveMsgStr = formatServeMsgStr(msgTypeRecall)
-			notify(c, string(serveMsgStr))
+			// 通知所有用户，包括消息发送者本人
+			_, roomIdInt := getRoomId()
+			for _, con := range rooms[roomIdInt] {
+				con.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+			}
+			// 同时也向发送者发送响应
+			c.WriteMessage(websocket.TextMessage, serveMsgStr)
 		}
 
 		//log.Println("serveMsgStr", string(serveMsgStr))

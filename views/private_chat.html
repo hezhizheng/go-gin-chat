@@ -34,7 +34,7 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="msg_{{ .ID }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
@@ -49,7 +49,7 @@
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="msg_{{ .ID }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>

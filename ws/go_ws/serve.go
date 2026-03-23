@@ -33,16 +33,19 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid       string        `json:"uid"`
+	Username  string        `json:"username"`
+	AvatarId  string        `json:"avatar_id"`
+	ToUid     string        `json:"to_uid"`
+	Content   string        `json:"content"`
+	ImageUrl  string        `json:"image_url"`
+	RoomId    string        `json:"room_id"`
+	Count     int           `json:"count"`
+	List      []interface{} `json:"list"`
+	Time      int64         `json:"time"`
+	MsgId     uint          `json:"msg_id"`
+	Success   bool          `json:"success"`
+	TempMsgId string        `json:"temp_msg_id"`
 }
 
 // client & serve 的消息体
@@ -89,6 +92,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -212,16 +216,31 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 			continue
 		}
 
-		json.Unmarshal(message, &clientMsgData)
+		// 使用局部变量解析消息
+		var tempMsg msg
+		err = json.Unmarshal(message, &tempMsg)
+		if err != nil {
+			log.Println("JSON解析错误:", err)
+			continue
+		}
+		log.Println("收到消息:", string(message))
+		log.Println("解析后 - temp_msg_id:", tempMsg.Data.TempMsgId, "status:", tempMsg.Status, "msg_id:", tempMsg.Data.MsgId)
 
 		clientMsgLock.Lock()
-		clientMsg = clientMsgData
+		clientMsg = tempMsg
+		clientMsgData = tempMsg
 		// 保存需要使用的字段到局部变量
 		dataUid := clientMsg.Data.Uid
 		status := clientMsg.Status
 		dataUsername := clientMsg.Data.Username
 		dataAvatarId := clientMsg.Data.AvatarId
 		dataRoomId := clientMsg.Data.RoomId
+		dataMsgId := clientMsg.Data.MsgId
+		// 对于撤回消息，复制完整的数据
+		var recallData msgData
+		if status == msgTypeRecall {
+			recallData = clientMsg.Data
+		}
 		clientMsgLock.Unlock()
 
 		//fmt.Println("来自客户端的消息", clientMsg, c.RemoteAddr())
@@ -237,8 +256,18 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 				}
 			}
 
-			_, serveMsg := formatServeMsgStr(status, c)
-			sMsg <- serveMsg
+			// 对于撤回消息，直接传递，不调用 formatServeMsgStr
+			if status == msgTypeRecall {
+				log.Println("收到撤回消息请求:", dataMsgId, "用户:", dataUid)
+				sMsg <- msg{
+					Status: status,
+					Data:   recallData,
+					Conn:   c,
+				}
+			} else {
+				_, serveMsg := formatServeMsgStr(status, c)
+				sMsg <- serveMsg
+			}
 		}
 	}
 }
@@ -275,6 +304,8 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeRecall:
+				handleRecallMessage(cl)
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -427,6 +458,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	content := clientMsg.Data.Content
 	toUidStr := clientMsg.Data.ToUid
 	imageUrl := clientMsg.Data.ImageUrl
+	tempMsgId := clientMsg.Data.TempMsgId
 	clientMsgLock.Unlock()
 
 	roomIdInt, _ := strconv.Atoi(roomId)
@@ -434,11 +466,14 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	//log.Println(reflect.TypeOf(var))
 
 	data := msgData{
-		Username: username,
-		Uid:      uid,
-		RoomId:   roomId,
-		Time:     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+		Username:  username,
+		Uid:       uid,
+		RoomId:    roomId,
+		Time:      time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+		TempMsgId: tempMsgId,
 	}
+
+	log.Println("formatServeMsgStr - status:", status, "tempMsgId:", tempMsgId)
 
 	if status == msgTypeSend || status == msgTypePrivateChat {
 		data.AvatarId = avatarId
@@ -454,9 +489,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,14 +500,15 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
-
+		data.MsgId = savedMsg.ID
+		log.Println("消息已保存 - ID:", savedMsg.ID, "tempMsgId:", tempMsgId)
 	}
 
 	if status == msgTypeGetOnlineUser {
@@ -498,6 +535,77 @@ func getRoomId() (string, int) {
 
 	roomIdInt, _ := strconv.Atoi(roomId)
 	return roomId, roomIdInt
+}
+
+// handleRecallMessage 处理消息撤回
+func handleRecallMessage(cl msg) {
+	// 从消息中读取数据
+	msgId := cl.Data.MsgId
+	uid := cl.Data.Uid
+	username := cl.Data.Username
+	roomId := cl.Data.RoomId
+	toUid := cl.Data.ToUid
+
+	log.Println("处理撤回消息:", msgId, "用户:", uid, "用户名:", username)
+
+	intUid, _ := strconv.Atoi(uid)
+
+	// 调用模型删除消息
+	success := models.DeleteMessage(msgId, intUid)
+	log.Println("撤回消息结果:", success)
+
+	data := msgData{
+		Username: username,
+		Uid:      uid,
+		RoomId:   roomId,
+		MsgId:    msgId,
+		Success:  success,
+		Time:     time.Now().UnixNano() / 1e6,
+	}
+
+	recallMsg := msg{
+		Status: msgTypeRecall,
+		Data:   data,
+		Conn:   cl.Conn,
+	}
+
+	recallMsgStr, _ := json.Marshal(recallMsg)
+
+	// 如果是私聊，只通知双方
+	if toUid != "" && toUid != "0" {
+		chNotify <- 1
+		// 通知发送方
+		cl.Conn.WriteMessage(websocket.TextMessage, recallMsgStr)
+		// 通知接收方
+		toC := findToUserCoonClientByUid(toUid)
+		if toC != nil {
+			toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, recallMsgStr)
+		}
+		<-chNotify
+	} else {
+		// 群聊，通知房间内所有人
+		notify(cl.Conn, string(recallMsgStr))
+	}
+}
+
+// findToUserCoonClientByUid 根据用户ID查找连接
+func findToUserCoonClientByUid(toUserUid string) interface{} {
+	// 读取clientMsg需要加锁
+	clientMsgLock.Lock()
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	roomIdInt, _ := strconv.Atoi(roomId)
+
+	assignRoom := rooms[roomIdInt]
+	for _, c := range assignRoom {
+		stringUid := c.(wsClients).Uid
+		if stringUid == toUserUid {
+			return c
+		}
+	}
+
+	return nil
 }
 
 // =======================对外方法=====================================

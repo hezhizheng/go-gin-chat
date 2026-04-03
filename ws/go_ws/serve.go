@@ -43,6 +43,7 @@ type msgData struct {
 	Count    int           `json:"count"`
 	List     []interface{} `json:"list"`
 	Time     int64         `json:"time"`
+	MsgId    uint          `json:"msg_id"`
 }
 
 // client & serve 的消息体
@@ -89,6 +90,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -237,8 +239,16 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 				}
 			}
 
-			_, serveMsg := formatServeMsgStr(status, c)
-			sMsg <- serveMsg
+			if status == msgTypeRecall {
+				// 处理撤回消息
+				serveMsg := handleRecallMessage(c)
+				if serveMsg != nil {
+					sMsg <- *serveMsg
+				}
+			} else {
+				_, serveMsg := formatServeMsgStr(status, c)
+				sMsg <- serveMsg
+			}
 		}
 	}
 }
@@ -275,6 +285,8 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeRecall:
+				notify(cl.Conn, string(serveMsgStr))
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -454,9 +466,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,13 +477,14 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
+		data.MsgId = savedMsg.ID
 
 	}
 
@@ -512,4 +526,35 @@ func GetOnlineUserCount() int {
 
 func GetOnlineRoomUserCount(roomId int) int {
 	return len(rooms[roomId])
+}
+
+func handleRecallMessage(c *websocket.Conn) *msg {
+	clientMsgLock.Lock()
+	uid := clientMsg.Data.Uid
+	username := clientMsg.Data.Username
+	roomId := clientMsg.Data.RoomId
+	msgId := clientMsg.Data.MsgId
+	clientMsgLock.Unlock()
+
+	intUid, _ := strconv.Atoi(uid)
+
+	err := models.RecallMessage(msgId, intUid)
+	if err != nil {
+		log.Println("Recall message error:", err)
+		return nil
+	}
+
+	data := msgData{
+		Uid:      uid,
+		Username: username,
+		RoomId:   roomId,
+		MsgId:    msgId,
+		Time:     time.Now().UnixNano() / 1e6,
+	}
+
+	return &msg{
+		Status: msgTypeRecall,
+		Data:   data,
+		Conn:   c,
+	}
 }

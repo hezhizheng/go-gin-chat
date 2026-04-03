@@ -1,10 +1,11 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
@@ -15,6 +16,7 @@ type Message struct {
 	RoomId    int
 	Content   string
 	ImageUrl  string
+	IsDeleted bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -39,7 +41,7 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -47,12 +49,13 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Joins("INNER Join users on users.id = messages.user_id").
 		Where("messages.room_id = " + roomId).
 		Where("messages.to_user_id = 0").
+		Where("messages.is_deleted = 0").
 		Order("messages.id desc").
 		Offset(offset).
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
@@ -61,7 +64,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -72,16 +75,42 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 			" or " +
 			"(" + "messages.user_id = " + toUId + " and messages.to_user_id=" + uid + ")" +
 			")").
+		Where("messages.is_deleted = 0").
 		Order("messages.id desc").
 		Offset(offset).
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
 	}
 
 	return results
+}
+
+func RecallMessage(messageId uint, userId int) error {
+	var m Message
+	if err := ChatDB.First(&m, messageId).Error; err != nil {
+		return err
+	}
+
+	if m.UserId != userId {
+		return gorm.ErrRecordNotFound
+	}
+
+	if time.Since(m.CreatedAt) > 2*time.Minute {
+		return gorm.ErrRecordNotFound
+	}
+
+	return ChatDB.Model(&m).Update("is_deleted", true).Error
+}
+
+func GetMessageById(messageId uint) *Message {
+	var m Message
+	if err := ChatDB.First(&m, messageId).Error; err != nil {
+		return nil
+	}
+	return &m
 }

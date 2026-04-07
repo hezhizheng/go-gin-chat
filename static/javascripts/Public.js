@@ -14,7 +14,11 @@ let websocketHeartbeatJs = new WebsocketHeartbeatJs(websocketHeartbeatJsOptions)
 let ws = websocketHeartbeatJs;
 // let ws = new WebSocket("ws://"+ window.location.host +"/ws");
 
-function _time(time = +new Date()) {
+function _time(time) {
+	// 如果 time 为 null/undefined/0，使用当前时间
+	if (!time) {
+		time = +new Date();
+	}
 	var date = new Date(time + 8 * 3600 * 1000); // 增加8小时
 	return date.toJSON().substr(0, 19).replace('T', ' ');
 	//return date.toJSON().substr(0, 19).replace('T', ' ').replace(/-/g, '/');
@@ -81,7 +85,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 
 			// let myDate = new Date();
 			// let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			let time = _time(received_msg.data.time)
+			let time = _time(received_msg.data ? received_msg.data.time : null)
 
 			switch(received_msg.status)
 			{
@@ -119,10 +123,20 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						received_msg.data.content +
 						'</div></li>');
 				} else if ( received_msg.data.uid == userInfo.uid ) {
-					// 自己发送的消息，更新消息ID
-					let lastRightMsg = $('.chat_info li.right:last');
-					if (lastRightMsg.length > 0 && !lastRightMsg.attr('data-msg-id')) {
-						lastRightMsg.attr('data-msg-id', received_msg.data.msg_id);
+					// 自己发送的消息，使用 client_msg_id 精确匹配更新消息ID
+					if (received_msg.data.client_msg_id) {
+						let targetMsg = $('.chat_info li.right[data-client-msg-id="' + received_msg.data.client_msg_id + '"]');
+						if (targetMsg.length > 0) {
+							targetMsg.attr('data-msg-id', received_msg.data.msg_id);
+							// 更新成功后移除 client_msg_id 属性
+							targetMsg.removeAttr('data-client-msg-id');
+						}
+					} else {
+						// 兼容旧逻辑：如果没有 client_msg_id，尝试更新最后一条消息
+						let lastRightMsg = $('.chat_info li.right:last');
+						if (lastRightMsg.length > 0 && !lastRightMsg.attr('data-msg-id')) {
+							lastRightMsg.attr('data-msg-id', received_msg.data.msg_id);
+						}
 					}
 				}
 				break;
@@ -342,7 +356,10 @@ $(document).ready(function(){
 				status = 5
 			}
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			// 生成客户端消息ID
+			let clientMsgId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, null, clientMsgId); // sends_message(昵称,头像id,聊天内容);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -354,6 +371,7 @@ $(document).ready(function(){
 					"image_url": res.data.url,
 					"content": str,
 					"to_uid" : to_uid,
+					"client_msg_id": clientMsgId
 				}
 			})
 
@@ -396,8 +414,10 @@ $(document).ready(function(){
 				status = 5
 			}
 
+			// 生成客户端消息ID
+			let clientMsgId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, null, clientMsgId); // sends_message(昵称,头像id,聊天内容);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -409,6 +429,7 @@ $(document).ready(function(){
 					"content": str,
 					"image_url" : "",
 					"to_uid" : to_uid,
+					"client_msg_id": clientMsgId
 				}
 			})
 
@@ -502,15 +523,16 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message, msgId) {
+	function sends_message (userName, userPortrait, message, msgId, clientMsgId) {
 		if(message!='') {
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
 			let msgIdAttr = msgId ? 'data-msg-id="' + msgId + '"' : '';
+			let clientMsgIdAttr = clientMsgId ? 'data-client-msg-id="' + clientMsgId + '"' : '';
 			let userId = $('.room').attr('data-uid');
 			let createdAt = new Date().toISOString();
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" ' + msgIdAttr + ' data-user-id="' + userId + '" data-created-at="' + createdAt + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="msg-content">' + message  +'</div></li>');
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" ' + msgIdAttr + ' ' + clientMsgIdAttr + ' data-user-id="' + userId + '" data-created-at="' + createdAt + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="msg-content">' + message  +'</div></li>');
 		}
 	}
 	$('.text input').keypress(function(e) {
@@ -558,10 +580,40 @@ function recordSentMessage(msgId) {
 	}
 }
 
+// 标准化时间字符串，处理各种格式
+function normalizeTimeString(timeStr) {
+	if (!timeStr) return null;
+	
+	// 如果是纯数字（时间戳），直接返回
+	if (/^\d+$/.test(timeStr)) {
+		return parseInt(timeStr);
+	}
+	
+	// 处理 Go 时间格式: "2026-04-07 18:22:52 +0800 CST"
+	// 移除时区名称，保留偏移量
+	let normalized = timeStr.replace(/\s+[A-Z]{3,4}$/, '');
+	
+	// 尝试解析
+	let time = new Date(normalized).getTime();
+	if (!isNaN(time)) {
+		return time;
+	}
+	
+	// 如果还是失败，尝试 ISO 8601 格式
+	normalized = timeStr.replace(' ', 'T');
+	time = new Date(normalized).getTime();
+	if (!isNaN(time)) {
+		return time;
+	}
+	
+	return null;
+}
+
 // 检查消息是否在2分钟内
 function canRecallMessage(createdAt) {
 	if (!createdAt) return false;
-	let msgTime = new Date(createdAt).getTime();
+	let msgTime = normalizeTimeString(createdAt);
+	if (!msgTime) return false;
 	let now = Date.now();
 	return (now - msgTime) < 2 * 60 * 1000; // 2分钟
 }
@@ -597,7 +649,7 @@ function sendRecallRequest(msgId, userId, roomId, toUid) {
 		}
 	};
 	
-	if (ws && ws.readyState === WebSocket.OPEN) {
+	if (ws) {
 		ws.send(JSON.stringify(recallData));
 	}
 }

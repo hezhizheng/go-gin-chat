@@ -33,17 +33,18 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
-	MsgId    uint          `json:"msg_id"`
+	Uid         string        `json:"uid"`
+	Username    string        `json:"username"`
+	AvatarId    string        `json:"avatar_id"`
+	ToUid       string        `json:"to_uid"`
+	Content     string        `json:"content"`
+	ImageUrl    string        `json:"image_url"`
+	RoomId      string        `json:"room_id"`
+	Count       int           `json:"count"`
+	List        []interface{} `json:"list"`
+	Time        int64         `json:"time"`
+	MsgId       uint          `json:"msg_id"`
+	ClientMsgId string        `json:"client_msg_id"`
 }
 
 // client & serve 的消息体
@@ -454,6 +455,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	content := clientMsg.Data.Content
 	toUidStr := clientMsg.Data.ToUid
 	imageUrl := clientMsg.Data.ImageUrl
+	clientMsgId := clientMsg.Data.ClientMsgId
 	clientMsgLock.Unlock()
 
 	roomIdInt, _ := strconv.Atoi(roomId)
@@ -461,10 +463,11 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	//log.Println(reflect.TypeOf(var))
 
 	data := msgData{
-		Username: username,
-		Uid:      uid,
-		RoomId:   roomId,
-		Time:     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+		Username:    username,
+		Uid:         uid,
+		RoomId:      roomId,
+		Time:        time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+		ClientMsgId: clientMsgId,
 	}
 
 	if status == msgTypeSend || status == msgTypePrivateChat {

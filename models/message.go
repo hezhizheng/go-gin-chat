@@ -1,22 +1,24 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
 	gorm.Model
-	ID        uint
-	UserId    int
-	ToUserId  int
-	RoomId    int
-	Content   string
-	ImageUrl  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uint
+	UserId     int
+	ToUserId   int
+	RoomId     int
+	Content    string
+	ImageUrl   string
+	IsRecalled int `gorm:"default:0"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func SaveContent(value interface{}) Message {
@@ -36,10 +38,14 @@ func SaveContent(value interface{}) Message {
 	}
 
 	ChatDB.Create(&m)
-	return m
+
+	// 重新查询获取完整数据
+	var savedMsg Message
+	ChatDB.Last(&savedMsg)
+	return savedMsg
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -52,7 +58,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
@@ -61,7 +67,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -77,11 +83,37 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
 	}
 
 	return results
+}
+
+func GetMessageById(msgId uint) (Message, error) {
+	var m Message
+	result := ChatDB.First(&m, msgId)
+	return m, result.Error
+}
+
+func RecallMessage(msgId uint, userId int) error {
+	var m Message
+	result := ChatDB.First(&m, msgId)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if m.UserId != userId {
+		return gorm.ErrRecordNotFound
+	}
+
+	if m.IsRecalled == 1 {
+		return nil
+	}
+
+	m.IsRecalled = 1
+	result = ChatDB.Save(&m)
+	return result.Error
 }

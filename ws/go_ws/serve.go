@@ -43,6 +43,7 @@ type msgData struct {
 	Count    int           `json:"count"`
 	List     []interface{} `json:"list"`
 	Time     int64         `json:"time"`
+	MsgId    uint          `json:"msg_id"`
 }
 
 // client & serve 的消息体
@@ -89,8 +90,29 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 撤回消息
 
 const roomCount = 6 // 房间总数
+
+// 撤回消息请求数据结构
+type recallData struct {
+	MsgId  uint   `json:"msg_id"`
+	UserId int    `json:"user_id"`
+	RoomId string `json:"room_id"`
+	ToUid  string `json:"to_uid"`
+}
+
+// 撤回消息响应数据结构
+type recallResponse struct {
+	Status  int    `json:"status"`
+	MsgId   uint   `json:"msg_id"`
+	UserId  int    `json:"user_id"`
+	RoomId  string `json:"room_id"`
+	ToUid   string `json:"to_uid"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Time    int64  `json:"time"`
+}
 
 type GoServe struct {
 	ws.ServeInterface
@@ -239,6 +261,11 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 
 			_, serveMsg := formatServeMsgStr(status, c)
 			sMsg <- serveMsg
+		}
+
+		// 处理撤回消息
+		if status == msgTypeRecall {
+			handleRecallMessage(message, c)
 		}
 	}
 }
@@ -454,9 +481,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,7 +492,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -472,6 +500,8 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 			})
 		}
 
+		// 设置消息ID
+		data.MsgId = savedMsg.ID
 	}
 
 	if status == msgTypeGetOnlineUser {
@@ -498,6 +528,124 @@ func getRoomId() (string, int) {
 
 	roomIdInt, _ := strconv.Atoi(roomId)
 	return roomId, roomIdInt
+}
+
+// 处理撤回消息
+func handleRecallMessage(message []byte, c *websocket.Conn) {
+	var recallReq struct {
+		Status int        `json:"status"`
+		Data   recallData `json:"data"`
+	}
+
+	if err := json.Unmarshal(message, &recallReq); err != nil {
+		log.Println("撤回消息解析失败:", err)
+		sendRecallResponse(c, 0, 0, "", "", false, "消息格式错误")
+		return
+	}
+
+	msgId := recallReq.Data.MsgId
+	userId := recallReq.Data.UserId
+	roomId := recallReq.Data.RoomId
+	toUid := recallReq.Data.ToUid
+
+	// 获取消息
+	msg, err := models.GetMessageById(msgId)
+	if err != nil {
+		log.Println("获取消息失败:", err)
+		sendRecallResponse(c, msgId, userId, roomId, toUid, false, "消息不存在")
+		return
+	}
+
+	// 检查是否是消息发送者
+	if msg.UserId != userId {
+		sendRecallResponse(c, msgId, userId, roomId, toUid, false, "只能撤回自己发送的消息")
+		return
+	}
+
+	// 检查是否在2分钟内
+	timeDiff := time.Since(msg.CreatedAt)
+	if timeDiff > 2*time.Minute {
+		sendRecallResponse(c, msgId, userId, roomId, toUid, false, "消息已超过2分钟，无法撤回")
+		return
+	}
+
+	// 执行撤回
+	if err := models.RecallMessage(msgId, userId); err != nil {
+		log.Println("撤回消息失败:", err)
+		sendRecallResponse(c, msgId, userId, roomId, toUid, false, "撤回失败")
+		return
+	}
+
+	// 广播撤回消息
+	broadcastRecallMessage(msgId, userId, roomId, toUid, c)
+
+	// 发送成功响应
+	sendRecallResponse(c, msgId, userId, roomId, toUid, true, "撤回成功")
+}
+
+// 发送撤回响应
+func sendRecallResponse(c *websocket.Conn, msgId uint, userId int, roomId, toUid string, success bool, message string) {
+	response := recallResponse{
+		Status:  msgTypeRecall,
+		MsgId:   msgId,
+		UserId:  userId,
+		RoomId:  roomId,
+		ToUid:   toUid,
+		Success: success,
+		Message: message,
+		Time:    time.Now().UnixNano() / 1e6,
+	}
+
+	data, _ := json.Marshal(response)
+	chNotify <- 1
+	c.WriteMessage(websocket.TextMessage, data)
+	<-chNotify
+}
+
+// 广播撤回消息
+func broadcastRecallMessage(msgId uint, userId int, roomId, toUid string, conn *websocket.Conn) {
+	response := recallResponse{
+		Status:  msgTypeRecall,
+		MsgId:   msgId,
+		UserId:  userId,
+		RoomId:  roomId,
+		ToUid:   toUid,
+		Success: true,
+		Message: "消息已撤回",
+		Time:    time.Now().UnixNano() / 1e6,
+	}
+
+	data, _ := json.Marshal(response)
+
+	// 私聊消息
+	if toUid != "" && toUid != "0" {
+		// 发送给接收者
+		toUidInt, _ := strconv.Atoi(toUid)
+		roomIdInt, _ := strconv.Atoi(roomId)
+		assignRoom := rooms[roomIdInt]
+		for _, con := range assignRoom {
+			conUid, _ := strconv.Atoi(con.(wsClients).Uid)
+			if conUid == toUidInt {
+				chNotify <- 1
+				con.(wsClients).Conn.WriteMessage(websocket.TextMessage, data)
+				<-chNotify
+				break
+			}
+		}
+		// 发送给自己
+		chNotify <- 1
+		conn.WriteMessage(websocket.TextMessage, data)
+		<-chNotify
+	} else {
+		// 群聊消息，广播给房间内所有人
+		roomIdInt, _ := strconv.Atoi(roomId)
+		assignRoom := rooms[roomIdInt]
+		for _, con := range assignRoom {
+			chNotify <- 1
+			con.(wsClients).Conn.WriteMessage(websocket.TextMessage, data)
+			<-chNotify
+		}
+	}
 }
 
 // =======================对外方法=====================================

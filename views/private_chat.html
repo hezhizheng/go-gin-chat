@@ -34,30 +34,36 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}" data-user-id="{{ .user_id }}" data-created-at="{{ .created_at }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
-                            {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
+                            {{ if eq .is_recalled 1 }}
+                                <div class="recalled-msg">消息已撤回</div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div class="msg-content">{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                    <div class="msg-content"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                            {{end}}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .id }}" data-user-id="{{ .user_id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
-                            {{ if eq .image_url $nullSrl }}
-
-                                <div>{{ .content }}</div>
-                            {{else}}
-                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            {{ if eq .is_recalled 1 }}
+                                <div class="recalled-msg">消息已撤回</div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div class="msg-content">{{ .content }}</div>
+                                {{else}}
+                                    <div class="msg-content"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{end}}
                             {{end}}
                         </li>
 
@@ -105,6 +111,17 @@
     $(document).ready(function () {
         // 滚动到底部
         toLow();
+
+        // 绑定右键菜单事件
+        $(document).on('contextmenu', '.chat_info li.right', function(e) {
+            e.preventDefault();
+            let msgId = $(this).data('msg-id');
+            let userId = $(this).data('user-id');
+            let createdAt = $(this).data('created-at');
+            let roomId = {{ .room_id }};
+            let toUid = getQueryVariable("uid");
+            showRecallMenu(this, msgId, userId, createdAt, roomId, toUid);
+        });
     });
 </script>
 

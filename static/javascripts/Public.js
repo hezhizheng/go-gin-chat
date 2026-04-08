@@ -51,6 +51,10 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 				'</span></li>');
 			ws.send(send_data);
 			//console.log("send_data 发送数据", send_data)
+			
+			// 为历史消息添加撤回按钮
+			initHistoryRecallButtons(userInfo);
+			
 			toLow();
 		};
 
@@ -75,6 +79,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 
 		let chat_info = $('.main .chat_info')
 		let isServeClose = 0;
+		let pendingMsgId = null; // 保存待关联消息的临时ID
 
 		ws.onmessage = function (evt) {
 			var received_msg = JSON.parse(evt.data);
@@ -106,19 +111,48 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
+				case 5:
+					if ( received_msg.data.uid == userInfo.uid ) 
 					{
+						// 自己的消息，添加新消息
+						let liClass = 'right';
+						let timestamp = new Date().getTime();
+						let liId = 'msg-' + timestamp;
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="' + liClass + '" id="' + liId + '" data-timestamp="' + timestamp + '" data-msg-id="' + (received_msg.data.msg_id || '') + '"><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
 							'</b><i>' +
 							time +
-							'</i><div class="aaa">' +
+							'</i><div class="msg-content">' +
+							received_msg.data.content +
+							'</div></li>');
+						// 添加撤回按钮
+						if (received_msg.data.msg_id) {
+							let newLi = $('#' + liId);
+							addRecallButton(newLi, received_msg.data.msg_id, userInfo);
+						}
+					} 
+					else if (!isPrivateChat() || (isPrivateChat() && received_msg.status == 5)) 
+					{
+						// 别人的消息
+						let liClass = 'left';
+						chat_info.html(chat_info.html() +
+							'<li class="' + liClass + '" data-msg-id="' + (received_msg.data.msg_id || '') + '"><img src="/static/images/user/' +
+							received_msg.data.avatar_id +
+							'.png" alt=""><b>' +
+							received_msg.data.username +
+							'</b><i>' +
+							time +
+							'</i><div class="msg-content">' +
 							received_msg.data.content +
 							'</div></li>');
 					}
+					break;
+				case 6:
+					// 处理撤回消息
+					handleRecallMessage(received_msg.data);
 					break;
 				case -1:
 					ws.close() // 主动close掉
@@ -154,13 +188,6 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 
 					})
 					//console.log("在线用户",received_msg);
-					break;
-				case 5:
-					// 私聊通知
-					if (!isPrivateChat())
-					{
-						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
-					}
 					break;
 				default:
 			}
@@ -493,12 +520,8 @@ $(document).ready(function(){
 		$('.imgFileBtn').click();
 	});
 	function sends_message (userName, userPortrait, message) {
-		if(message!='') {
-
-			let myDate = new Date();
-			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
-		}
+		// 不再立即添加消息到DOM，等待服务器回显
+		// 这样可以确保我们正确获取 msg_id
 	}
 	$('.text input').keypress(function(e) {
 		if (e.which == 13){
@@ -539,6 +562,114 @@ function toLow() {
 	$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
 		scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
 	}, 500);
+}
+
+// 添加撤回按钮
+function addRecallButton(liElement, msgId, userInfo, createdAtTimestamp) {
+	let recallBtn = $('<span class="recall-btn" style="cursor:pointer;color:#0066cc;font-size:12px;margin-left:10px;display:none;">撤回</span>');
+	
+	recallBtn.click(function() {
+		recallMessage(msgId, userInfo);
+	});
+	
+	liElement.find('b').after(recallBtn);
+	
+	// 计算时间戳
+	let now = new Date().getTime();
+	let msgTimestamp;
+	if (createdAtTimestamp) {
+		// 使用数据库时间戳（秒）转换为毫秒
+		msgTimestamp = parseInt(createdAtTimestamp) * 1000;
+	} else {
+		// 使用本地时间戳
+		msgTimestamp = parseInt(liElement.attr('data-timestamp') || now);
+	}
+	
+	// 检查是否已超过2分钟
+	if (now - msgTimestamp >= 2 * 60 * 1000) {
+		return; // 超过时间不显示按钮
+	}
+	
+	// 鼠标悬停显示撤回按钮
+	liElement.hover(
+		function() {
+			let currentNow = new Date().getTime();
+			if (currentNow - msgTimestamp < 2 * 60 * 1000) {
+				$(this).find('.recall-btn').show();
+			}
+		},
+		function() {
+			$(this).find('.recall-btn').hide();
+		}
+	);
+	
+	// 右键菜单功能
+	liElement.on('contextmenu', function(e) {
+		e.preventDefault();
+		let currentNow = new Date().getTime();
+		if (currentNow - msgTimestamp < 2 * 60 * 1000) {
+			// 使用 layer 显示确认对话框
+			layer.confirm('确定要撤回这条消息吗？', {
+				title: '撤回消息',
+				btn: ['确定', '取消']
+			}, function(index) {
+				recallMessage(msgId, userInfo);
+				layer.close(index);
+			});
+		} else {
+			layer.msg('消息已超过2分钟，无法撤回');
+		}
+	});
+	
+	// 2分钟后隐藏撤回按钮并移除事件
+	let remainingTime = 2 * 60 * 1000 - (now - msgTimestamp);
+	if (remainingTime > 0) {
+		setTimeout(function() {
+			liElement.find('.recall-btn').hide();
+			liElement.off('contextmenu');
+		}, remainingTime);
+	}
+}
+
+// 为历史消息初始化撤回按钮
+function initHistoryRecallButtons(userInfo) {
+	$('.main .chat_info li.right[data-msg-id]').each(function() {
+		let $this = $(this);
+		let msgId = parseInt($this.attr('data-msg-id'));
+		let createdAtTimestamp = $this.attr('data-created-at');
+		
+		if (msgId && !$this.find('.recall-btn').length) {
+			addRecallButton($this, msgId, userInfo, createdAtTimestamp);
+		}
+	});
+}
+
+// 撤回消息
+function recallMessage(msgId, userInfo) {
+	let send_data = JSON.stringify({
+		"status": 6,
+		"data": {
+			"uid": userInfo.uid.toString(),
+			"username": userInfo.username,
+			"avatar_id": userInfo.avatar_id,
+			"room_id": userInfo.room_id,
+			"msg_id": msgId
+		}
+	});
+	ws.send(send_data);
+}
+
+// 处理撤回消息
+function handleRecallMessage(data) {
+	let msgLi = $('li[data-msg-id="' + data.msg_id + '"]');
+	if (msgLi.length > 0) {
+		// 更新消息内容
+		msgLi.find('.msg-content').html(data.content);
+		// 隐藏撤回按钮
+		msgLi.find('.recall-btn').remove();
+		// 移除鼠标悬停事件
+		msgLi.off('mouseenter mouseleave');
+	}
 }
 
 

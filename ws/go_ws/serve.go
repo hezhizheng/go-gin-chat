@@ -33,16 +33,19 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid          string        `json:"uid"`
+	Username     string        `json:"username"`
+	AvatarId     string        `json:"avatar_id"`
+	ToUid        string        `json:"to_uid"`
+	Content      string        `json:"content"`
+	ImageUrl     string        `json:"image_url"`
+	RoomId       string        `json:"room_id"`
+	Count        int           `json:"count"`
+	List         []interface{} `json:"list"`
+	Time         int64         `json:"time"`
+	MsgId        uint          `json:"msg_id"`        // 消息ID，用于撤回
+	IsRecalled   int           `json:"is_recalled"`   // 是否已撤回
+	ClientTempId string        `json:"client_temp_id"` // 客户端临时ID，用于回填
 }
 
 // client & serve 的消息体
@@ -89,6 +92,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -262,18 +266,31 @@ func write(done <-chan struct{}) {
 		case cl := <-sMsg:
 			serveMsgStr, _ := json.Marshal(cl)
 			switch cl.Status {
-			case msgTypeOnline, msgTypeSend:
+			case msgTypeOnline:
 				notify(cl.Conn, string(serveMsgStr))
+			case msgTypeSend:
+				// 群发消息：通知其他人，同时给发送者回执（包含真实msg_id）
+				notify(cl.Conn, string(serveMsgStr))
+				// 给发送者回执（不需要额外的chNotify，因为notify已经使用了）
+				cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 			case msgTypeGetOnlineUser:
 				chNotify <- 1
 				cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				<-chNotify
 			case msgTypePrivateChat:
 				chNotify <- 1
+				// 私聊消息：发给接收者，同时给发送者回执
 				toC := findToUserCoonClient()
 				if toC != nil {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
+				// 给发送者回执
+				cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+				<-chNotify
+			case msgTypeRecall:
+				chNotify <- 1
+				// 处理消息撤回
+				handleRecallMessage(cl)
 				<-chNotify
 			}
 		case o := <-offline:
@@ -427,6 +444,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	content := clientMsg.Data.Content
 	toUidStr := clientMsg.Data.ToUid
 	imageUrl := clientMsg.Data.ImageUrl
+	clientTempId := clientMsg.Data.ClientTempId
 	clientMsgLock.Unlock()
 
 	roomIdInt, _ := strconv.Atoi(roomId)
@@ -434,10 +452,11 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	//log.Println(reflect.TypeOf(var))
 
 	data := msgData{
-		Username: username,
-		Uid:      uid,
-		RoomId:   roomId,
-		Time:     time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+		Username:     username,
+		Uid:          uid,
+		RoomId:       roomId,
+		Time:         time.Now().UnixNano() / 1e6, // 13位  10位 => now.Unix()
+		ClientTempId: clientTempId,
 	}
 
 	if status == msgTypeSend || status == msgTypePrivateChat {
@@ -454,9 +473,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,14 +484,15 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
-
+		// 设置消息ID
+		data.MsgId = savedMsg.ID
 	}
 
 	if status == msgTypeGetOnlineUser {
@@ -498,6 +519,86 @@ func getRoomId() (string, int) {
 
 	roomIdInt, _ := strconv.Atoi(roomId)
 	return roomId, roomIdInt
+}
+
+// handleRecallMessage 处理消息撤回
+func handleRecallMessage(cl msg) {
+	// 读取需要的数据
+	clientMsgLock.Lock()
+	msgId := clientMsg.Data.MsgId
+	uid := clientMsg.Data.Uid
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	intUid, _ := strconv.Atoi(uid)
+
+	// 调用模型层撤回消息
+	success, msgStr := models.RecallMessage(msgId, intUid)
+
+	if success {
+		// 获取消息信息用于通知
+		message, _ := models.GetMessageById(msgId)
+
+		data := msgData{
+			Uid:        uid,
+			Username:   cl.Data.Username,
+			RoomId:     roomId,
+			MsgId:      msgId,
+			IsRecalled: 1,
+			Time:       time.Now().UnixNano() / 1e6,
+		}
+
+		// 如果是私聊消息
+		if message.ToUserId > 0 {
+			data.ToUid = strconv.Itoa(message.ToUserId)
+			// 通知发送者
+			cl.Conn.WriteMessage(websocket.TextMessage, mustEncode(msgTypeRecall, data))
+			// 通知接收者
+			toC := findToUserCoonClientByUid(message.ToUserId, roomId)
+			if toC != nil {
+				toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, mustEncode(msgTypeRecall, data))
+			}
+		} else {
+			// 群聊消息，广播给房间所有人
+			roomIdInt, _ := strconv.Atoi(roomId)
+			assignRoom := rooms[roomIdInt]
+			recallMsg := mustEncode(msgTypeRecall, data)
+			for _, con := range assignRoom {
+				con.(wsClients).Conn.WriteMessage(websocket.TextMessage, recallMsg)
+			}
+		}
+	} else {
+		// 撤回失败，通知发送者
+		data := msgData{
+			Uid:     uid,
+			Content: msgStr, // 错误信息
+			Time:    time.Now().UnixNano() / 1e6,
+		}
+		cl.Conn.WriteMessage(websocket.TextMessage, mustEncode(-2, data))
+	}
+}
+
+// mustEncode 编码消息
+func mustEncode(status int, data msgData) []byte {
+	jsonStrServeMsg := msg{
+		Status: status,
+		Data:   data,
+	}
+	serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
+	return serveMsgStr
+}
+
+// findToUserCoonClientByUid 根据用户ID和房间ID查找连接
+func findToUserCoonClientByUid(toUid int, roomId string) interface{} {
+	roomIdInt, _ := strconv.Atoi(roomId)
+	assignRoom := rooms[roomIdInt]
+	for _, c := range assignRoom {
+		stringUid := c.(wsClients).Uid
+		if stringUid == strconv.Itoa(toUid) {
+			return c
+		}
+	}
+	return nil
 }
 
 // =======================对外方法=====================================

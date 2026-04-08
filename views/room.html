@@ -65,7 +65,7 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right" data-msg-id="{{ .id }}">
+                        <li class="right" data-msg-id="{{ .id }}" data-created-at="{{ .created_at_timestamp }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
@@ -80,7 +80,7 @@
 
                     {{else}}
 
-                        <li class="left" data-msg-id="{{ .id }}">
+                        <li class="left" data-msg-id="{{ .id }}" data-created-at="{{ .created_at_timestamp }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>

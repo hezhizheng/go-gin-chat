@@ -51,6 +51,10 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 				'</span></li>');
 			ws.send(send_data);
 			//console.log("send_data 发送数据", send_data)
+			
+			// 为历史消息添加撤回按钮
+			initHistoryRecallButtons(userInfo);
+			
 			toLow();
 		};
 
@@ -110,33 +114,24 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 				case 5:
 					if ( received_msg.data.uid == userInfo.uid ) 
 					{
-						// 自己的消息，检查是否已经存在（避免重复）
-						let existingLi = $('.main .chat_info li.right[data-timestamp]').last();
-						if (existingLi.length > 0 && !existingLi.attr('data-msg-id') && received_msg.data.msg_id) {
-							// 如果已有临时消息但没有msg_id，更新它
-							existingLi.attr('data-msg-id', received_msg.data.msg_id);
-							// 添加撤回按钮
-							addRecallButton(existingLi, received_msg.data.msg_id, userInfo);
-						} else {
-							// 否则添加新消息
-							let liClass = 'right';
-							let timestamp = new Date().getTime();
-							let liId = 'msg-' + timestamp;
-							chat_info.html(chat_info.html() +
-								'<li class="' + liClass + '" id="' + liId + '" data-timestamp="' + timestamp + '" data-msg-id="' + (received_msg.data.msg_id || '') + '"><img src="/static/images/user/' +
-								received_msg.data.avatar_id +
-								'.png" alt=""><b>' +
-								received_msg.data.username +
-								'</b><i>' +
-								time +
-								'</i><div class="msg-content">' +
-								received_msg.data.content +
-								'</div></li>');
-							// 添加撤回按钮
-							if (received_msg.data.msg_id) {
-								let newLi = $('#' + liId);
-								addRecallButton(newLi, received_msg.data.msg_id, userInfo);
-							}
+						// 自己的消息，添加新消息
+						let liClass = 'right';
+						let timestamp = new Date().getTime();
+						let liId = 'msg-' + timestamp;
+						chat_info.html(chat_info.html() +
+							'<li class="' + liClass + '" id="' + liId + '" data-timestamp="' + timestamp + '" data-msg-id="' + (received_msg.data.msg_id || '') + '"><img src="/static/images/user/' +
+							received_msg.data.avatar_id +
+							'.png" alt=""><b>' +
+							received_msg.data.username +
+							'</b><i>' +
+							time +
+							'</i><div class="msg-content">' +
+							received_msg.data.content +
+							'</div></li>');
+						// 添加撤回按钮
+						if (received_msg.data.msg_id) {
+							let newLi = $('#' + liId);
+							addRecallButton(newLi, received_msg.data.msg_id, userInfo);
 						}
 					} 
 					else if (!isPrivateChat() || (isPrivateChat() && received_msg.status == 5)) 
@@ -570,8 +565,7 @@ function toLow() {
 }
 
 // 添加撤回按钮
-function addRecallButton(liElement, msgId, userInfo) {
-	let timestamp = new Date().getTime();
+function addRecallButton(liElement, msgId, userInfo, createdAtTimestamp) {
 	let recallBtn = $('<span class="recall-btn" style="cursor:pointer;color:#0066cc;font-size:12px;margin-left:10px;display:none;">撤回</span>');
 	
 	recallBtn.click(function() {
@@ -580,13 +574,27 @@ function addRecallButton(liElement, msgId, userInfo) {
 	
 	liElement.find('b').after(recallBtn);
 	
+	// 计算时间戳
+	let now = new Date().getTime();
+	let msgTimestamp;
+	if (createdAtTimestamp) {
+		// 使用数据库时间戳（秒）转换为毫秒
+		msgTimestamp = parseInt(createdAtTimestamp) * 1000;
+	} else {
+		// 使用本地时间戳
+		msgTimestamp = parseInt(liElement.attr('data-timestamp') || now);
+	}
+	
+	// 检查是否已超过2分钟
+	if (now - msgTimestamp >= 2 * 60 * 1000) {
+		return; // 超过时间不显示按钮
+	}
+	
 	// 鼠标悬停显示撤回按钮
 	liElement.hover(
 		function() {
-			let now = new Date().getTime();
-			let liTimestamp = parseInt($(this).attr('data-timestamp') || now);
-			// 检查是否在2分钟内
-			if (now - liTimestamp < 2 * 60 * 1000) {
+			let currentNow = new Date().getTime();
+			if (currentNow - msgTimestamp < 2 * 60 * 1000) {
 				$(this).find('.recall-btn').show();
 			}
 		},
@@ -595,10 +603,45 @@ function addRecallButton(liElement, msgId, userInfo) {
 		}
 	);
 	
-	// 2分钟后隐藏撤回按钮
-	setTimeout(function() {
-		liElement.find('.recall-btn').hide();
-	}, 2 * 60 * 1000);
+	// 右键菜单功能
+	liElement.on('contextmenu', function(e) {
+		e.preventDefault();
+		let currentNow = new Date().getTime();
+		if (currentNow - msgTimestamp < 2 * 60 * 1000) {
+			// 使用 layer 显示确认对话框
+			layer.confirm('确定要撤回这条消息吗？', {
+				title: '撤回消息',
+				btn: ['确定', '取消']
+			}, function(index) {
+				recallMessage(msgId, userInfo);
+				layer.close(index);
+			});
+		} else {
+			layer.msg('消息已超过2分钟，无法撤回');
+		}
+	});
+	
+	// 2分钟后隐藏撤回按钮并移除事件
+	let remainingTime = 2 * 60 * 1000 - (now - msgTimestamp);
+	if (remainingTime > 0) {
+		setTimeout(function() {
+			liElement.find('.recall-btn').hide();
+			liElement.off('contextmenu');
+		}, remainingTime);
+	}
+}
+
+// 为历史消息初始化撤回按钮
+function initHistoryRecallButtons(userInfo) {
+	$('.main .chat_info li.right[data-msg-id]').each(function() {
+		let $this = $(this);
+		let msgId = parseInt($this.attr('data-msg-id'));
+		let createdAtTimestamp = $this.attr('data-created-at');
+		
+		if (msgId && !$this.find('.recall-btn').length) {
+			addRecallButton($this, msgId, userInfo, createdAtTimestamp);
+		}
+	});
 }
 
 // 撤回消息

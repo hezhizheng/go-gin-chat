@@ -9,6 +9,52 @@
     <link rel="stylesheet" href="/static/stylesheets/style.css">
     <link rel="stylesheet" href="/static/emoji/emojionearea.min.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
+    <style>
+        /* 消息右键菜单 */
+        .msg-context-menu {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 10000;
+            display: none;
+            min-width: 120px;
+        }
+        .msg-context-menu ul {
+            list-style: none;
+            margin: 0;
+            padding: 5px 0;
+        }
+        .msg-context-menu li {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+        .msg-context-menu li:hover {
+            background: #f0f0f0;
+        }
+        .msg-context-menu li.disabled {
+            color: #999;
+            cursor: not-allowed;
+        }
+        .msg-context-menu li.disabled:hover {
+            background: transparent;
+        }
+        /* 已撤回消息样式 */
+        .recalled-msg {
+            color: #999;
+            font-style: italic;
+            font-size: 13px;
+        }
+        .chat_info li {
+            position: relative;
+        }
+        .chat_info li .msg-content {
+            cursor: context-menu;
+        }
+    </style>
 </head>
 <body id="body-room" class="room" data-uid="{{ .user_info.uid }}" data-username="{{ .user_info.username }}"
       data-avatar_id="{{ .user_info.avatar_id }}" data-room_id="{{ .room_id }}">
@@ -65,30 +111,36 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .ID }}" data-user-id="{{ .user_id }}" data-created-at="{{ .CreatedAt }}" {{if eq .is_recalled 1}}data-recalled="1"{{end}}>
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
-                            {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
+                            {{if eq .is_recalled 1}}
+                                <div class="recalled-msg">消息已撤回</div>
+                            {{else}}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div class="msg-content">{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                    <div class="msg-content"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                            {{end}}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .ID }}" data-user-id="{{ .user_id }}" {{if eq .is_recalled 1}}data-recalled="1"{{end}}>
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
-                            {{ if eq .image_url $nullSrl }}
-
-                                <div>{{ .content }}</div>
+                            {{if eq .is_recalled 1}}
+                                <div class="recalled-msg">消息已撤回</div>
                             {{else}}
-                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{ if eq .image_url $nullSrl }}
+                                    <div class="msg-content">{{ .content }}</div>
+                                {{else}}
+                                    <div class="msg-content"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{end}}
                             {{end}}
                         </li>
 
@@ -120,6 +172,13 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- 消息右键菜单 -->
+<div class="msg-context-menu" id="msgContextMenu">
+    <ul>
+        <li id="recallMsgBtn">撤回消息</li>
+    </ul>
 </div>
 </body>
 

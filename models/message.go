@@ -1,6 +1,8 @@
 package models
 
 import (
+	"log"
+
 	"gorm.io/gorm"
 	"sort"
 	"strconv"
@@ -9,14 +11,15 @@ import (
 
 type Message struct {
 	gorm.Model
-	ID        uint
-	UserId    int
-	ToUserId  int
-	RoomId    int
-	Content   string
-	ImageUrl  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uint
+	UserId     int
+	ToUserId   int
+	RoomId     int
+	Content    string
+	ImageUrl   string
+	IsRecalled int `gorm:"default:0"` // 0:未撤回 1:已撤回
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func SaveContent(value interface{}) Message {
@@ -35,7 +38,14 @@ func SaveContent(value interface{}) Message {
 		m.ImageUrl = value.(map[string]interface{})["image_url"].(string)
 	}
 
-	ChatDB.Create(&m)
+	result := ChatDB.Create(&m)
+	if result.Error != nil {
+		log.Println("SaveContent 创建消息失败:", result.Error)
+	} else {
+		log.Println("SaveContent 创建消息成功, ID:", m.ID)
+	}
+	// 重新查询获取完整数据
+	ChatDB.First(&m, m.ID)
 	return m
 }
 
@@ -84,4 +94,42 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 	}
 
 	return results
+}
+
+// RecallMessage 撤回消息
+func RecallMessage(msgId uint, userId int) (bool, string) {
+	var message Message
+	result := ChatDB.First(&message, msgId)
+	if result.Error != nil {
+		return false, "消息不存在"
+	}
+
+	// 检查是否是消息发送者
+	if message.UserId != userId {
+		return false, "只能撤回自己发送的消息"
+	}
+
+	// 检查消息是否已撤回
+	if message.IsRecalled == 1 {
+		return false, "消息已被撤回"
+	}
+
+	// 检查是否在2分钟内
+	timeDiff := time.Since(message.CreatedAt)
+	if timeDiff > 2*time.Minute {
+		return false, "消息发送超过2分钟，无法撤回"
+	}
+
+	// 执行撤回
+	message.IsRecalled = 1
+	ChatDB.Save(&message)
+
+	return true, "撤回成功"
+}
+
+// GetMessageById 根据ID获取消息
+func GetMessageById(msgId uint) (Message, error) {
+	var message Message
+	result := ChatDB.First(&message, msgId)
+	return message, result.Error
 }

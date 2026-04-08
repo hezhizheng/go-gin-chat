@@ -44,5 +44,8 @@ func main() {
 
 	log.Println("监听端口", "http://127.0.0.1:"+port)
 
-	http.ListenAndServe(":"+port, router)
+	err := http.ListenAndServe(":"+port, router)
+	if err != nil {
+		log.Fatal("服务器启动失败:", err)
+	}
 }

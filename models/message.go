@@ -1,10 +1,11 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
@@ -39,7 +40,31 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+func RecallMessage(msgId uint, userId int) (bool, string, Message) {
+	var m Message
+	if err := ChatDB.First(&m, msgId).Error; err != nil {
+		return false, "消息不存在", m
+	}
+
+	if m.UserId != userId {
+		return false, "只能撤回自己的消息", m
+	}
+
+	// 检查是否超过2分钟
+	now := time.Now()
+	if now.Sub(m.CreatedAt) > 2*time.Minute {
+		return false, "消息已超过2分钟，无法撤回", m
+	}
+
+	// 标记消息为已撤回（修改内容）
+	m.Content = "[消息已撤回]"
+	m.ImageUrl = ""
+	ChatDB.Save(&m)
+
+	return true, "撤回成功", m
+}
+
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -52,7 +77,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
@@ -61,7 +86,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -77,7 +102,7 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})

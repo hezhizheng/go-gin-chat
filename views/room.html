@@ -65,30 +65,36 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}" {{if eq .is_recalled 1}}style="opacity: 0.6;"{{end}}>
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
-                            {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
+                            {{ if eq .is_recalled 1 }}
+                                <div style="color: #999; font-style: italic;">消息已撤回</div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div>{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                    <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                            {{end}}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .id }}" {{if eq .is_recalled 1}}style="opacity: 0.6;"{{end}}>
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
-                            {{ if eq .image_url $nullSrl }}
-
-                                <div>{{ .content }}</div>
-                            {{else}}
-                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            {{ if eq .is_recalled 1 }}
+                                <div style="color: #999; font-style: italic;">消息已撤回</div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div>{{ .content }}</div>
+                                {{else}}
+                                    <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{end}}
                             {{end}}
                         </li>
 
@@ -128,7 +134,7 @@
 <script type="text/javascript" src="//s2.pstatp.com/cdn/expire-1-M/twitter-bootstrap/3.3.5/js/bootstrap.min.js"></script>
 <script type="text/javascript" src="/static/rolling/js/rolling.js"></script>
 <script type="text/javascript" src="/static/javascripts/websocket-heartbeat.js"></script>
-<script type="text/javascript" src="/static/javascripts/Public.js?t=312455345"></script>
+<script type="text/javascript" src="/static/javascripts/Public.js?t=312455346"></script>
 <script type="text/javascript" src="/static/emoji/emojionearea.min.js"></script>
 <script type="text/javascript" src="//s2.pstatp.com/cdn/expire-1-M/layer/3.1.1/layer.min.js"></script>
 <script type="text/javascript" src="/static/javascripts/load-msg-more.js?t=2"></script>
@@ -184,18 +190,36 @@
                     // console.log("private ",received_msg)
                     if (received_msg.status == 5 && received_msg.data.uid == uid)
                     {
-                        body.find('.main .chat_info').html(body.find('.main .chat_info').html() +
-                            '<li class="left"><img src="/static/images/user/' +
-                            received_msg.data.avatar_id +
-                            '.png" alt=""><b>' +
-                            received_msg.data.username +
-                            '</b><i>' +
-                            time +
-                            '</i><div class="aaa">' +
-                            received_msg.data.content +
-                            '</div></li>');
+                        // 私聊消息
+                        if (received_msg.data.is_recalled) {
+                            body.find('.main .chat_info').html(body.find('.main .chat_info').html() +
+                                '<li class="left" data-msg-id="' + received_msg.data.msg_id + '" style="opacity: 0.6;"><img src="/static/images/user/' +
+                                received_msg.data.avatar_id +
+                                '.png" alt=""><b>' +
+                                received_msg.data.username +
+                                '</b><i>' +
+                                time +
+                                '</i><div class="aaa" style="color: #999; font-style: italic;">消息已撤回</div></li>');
+                        } else {
+                            body.find('.main .chat_info').html(body.find('.main .chat_info').html() +
+                                '<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
+                                received_msg.data.avatar_id +
+                                '.png" alt=""><b>' +
+                                received_msg.data.username +
+                                '</b><i>' +
+                                time +
+                                '</i><div class="aaa">' +
+                                received_msg.data.content +
+                                '</div></li>');
+                        }
                     }else if (received_msg.status == 5){
                         layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+                    } else if (received_msg.status == 6) {
+                        // 撤回消息通知
+                        body.find('.main .chat_info li[data-msg-id="' + received_msg.data.msg_id + '"]').each(function() {
+                            $(this).find('div').html('<span style="color: #999; font-style: italic;">消息已撤回</span>');
+                            $(this).css('opacity', '0.6');
+                        });
                     }
                 }
 

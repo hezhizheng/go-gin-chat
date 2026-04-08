@@ -20,29 +20,37 @@ $(document).ready(function(){
 
 
                 $.each(item,function (index, value) {
+                    let contentHtml = '';
+                    let revokeBtnHtml = '';
+                    
+                    if (value.is_revoked) {
+                        contentHtml = '<div style="color:#999;font-style:italic;">[消息已撤回]</div>';
+                    } else {
+                        contentHtml = '<div class="aaa">' + value.content + '</div>';
+                        if (value.user_id == $("#body-room").attr("data-uid")) {
+                            revokeBtnHtml = '<button class="revoke-btn" style="font-size:12px;cursor:pointer;">撤回</button>';
+                        }
+                    }
+                    
                     if ( value.user_id == $("#body-room").attr("data-uid") )
                     {
                         $('#chat-list-li-top').after(
-                            '<li class="right"><img src="/static/images/user/' +
+                            '<li class="right" data-msg-id="' + value.id + '" data-created-at="' + value.created_at + '"><img src="/static/images/user/' +
                             value.avatar_id +
                             '.png" alt=""><b>' +
                             value.username +
                             '</b><i>' +
                             value.created_at +
-                            '</i><div class="aaa">' +
-                            value.content+
-                            '</div></li>');
+                            '</i>' + revokeBtnHtml + contentHtml + '</li>');
                     }else{
                         $('#chat-list-li-top').after(
-                            '<li class="left"><img src="/static/images/user/' +
+                            '<li class="left" data-msg-id="' + value.id + '"><img src="/static/images/user/' +
                             value.avatar_id +
                             '.png" alt=""><b>' +
                             value.username +
                             '</b><i>' +
                             value.created_at +
-                            '</i><div class="aaa">' +
-                            value.content+
-                            '</div></li>');
+                            '</i>' + contentHtml + '</li>');
                     }
 
                 })

@@ -391,4 +391,15 @@ ul{
 	color: #afa;
 }
 
+/* 撤回消息样式 */
+.recalled-msg {
+	color: #999;
+	font-style: italic;
+	background-color: transparent !important;
+}
+
+#recall-context-menu:hover {
+	background-color: #f0f0f0;
+}
+
 

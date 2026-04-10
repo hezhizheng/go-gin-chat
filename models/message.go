@@ -15,6 +15,7 @@ type Message struct {
 	RoomId    int
 	Content   string
 	ImageUrl  string
+	IsRecalled bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -84,4 +85,28 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 	}
 
 	return results
+}
+
+func RecallMessage(msgId uint, userId int) (bool, string, *Message) {
+	var message Message
+	if err := ChatDB.First(&message, msgId).Error; err != nil {
+		return false, "消息不存在", nil
+	}
+
+	if message.UserId != userId {
+		return false, "只能撤回自己的消息", nil
+	}
+
+	if message.IsRecalled {
+		return false, "消息已被撤回", nil
+	}
+
+	if time.Since(message.CreatedAt) > 2*time.Minute {
+		return false, "消息已超过2分钟，无法撤回", nil
+	}
+
+	message.IsRecalled = true
+	ChatDB.Save(&message)
+
+	return true, "撤回成功", &message
 }

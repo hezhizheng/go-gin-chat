@@ -1,22 +1,24 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
 	gorm.Model
-	ID        uint
-	UserId    int
-	ToUserId  int
-	RoomId    int
-	Content   string
-	ImageUrl  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uint
+	UserId     int
+	ToUserId   int
+	RoomId     int
+	Content    string
+	ImageUrl   string
+	IsRecalled int `gorm:"default:0"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func SaveContent(value interface{}) Message {
@@ -39,7 +41,7 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -52,7 +54,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
@@ -61,7 +63,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -77,11 +79,53 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
 	}
 
 	return results
+}
+
+// GetMessageById 根据ID获取消息
+func GetMessageById(msgId uint) (*Message, error) {
+	var msg Message
+	result := ChatDB.First(&msg, msgId)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &msg, nil
+}
+
+// RecallMessage 撤回消息
+func RecallMessage(msgId uint) error {
+	result := ChatDB.Model(&Message{}).Where("id = ?", msgId).Update("is_recalled", 1)
+	return result.Error
+}
+
+// CanRecallMessage 检查消息是否可以撤回（2分钟内）
+func CanRecallMessage(msgId uint, userId int) (bool, error) {
+	msg, err := GetMessageById(msgId)
+	if err != nil {
+		return false, err
+	}
+
+	// 检查是否是消息发送者
+	if msg.UserId != userId {
+		return false, nil
+	}
+
+	// 检查是否已撤回
+	if msg.IsRecalled == 1 {
+		return false, nil
+	}
+
+	// 检查是否在2分钟内
+	timeDiff := time.Since(msg.CreatedAt)
+	if timeDiff > 2*time.Minute {
+		return false, nil
+	}
+
+	return true, nil
 }

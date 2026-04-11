@@ -106,20 +106,45 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
-						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
-							received_msg.data.avatar_id +
-							'.png" alt=""><b>' +
-							received_msg.data.username +
-							'</b><i>' +
-							time +
-							'</i><div class="aaa">' +
-							received_msg.data.content +
-							'</div></li>');
-					}
-					break;
+			if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
+			{
+				chat_info.html(chat_info.html() +
+					'<li class="left" data-message-id="' + received_msg.data.message_id + '" data-user-id="' + received_msg.data.uid + '"><img src="/static/images/user/' +
+					received_msg.data.avatar_id +
+					'.png" alt=""><b>' +
+					received_msg.data.username +
+					'</b><i>' +
+					time +
+					'</i><div class="aaa">' +
+					received_msg.data.content +
+					'</div></li>');
+			} else if ( received_msg.data.uid == userInfo.uid && !isPrivateChat() ) {
+				// 自己发送的消息，添加消息ID到DOM
+				var lastLi = chat_info.find('li.right').last();
+				lastLi.attr('data-message-id', received_msg.data.message_id);
+				lastLi.attr('data-user-id', received_msg.data.uid);
+				// 添加撤回按钮（如果还没有的话）
+				if (lastLi.find('.recall-btn').length === 0) {
+					lastLi.append('<span class="recall-btn" style="display:none;cursor:pointer;color:#999;font-size:12px;margin-top:5px;">撤回</span>');
+				}
+			}
+			break;
+			case 6:
+			// 撤回消息通知
+			var messageId = received_msg.data.message_id;
+			var msgLi = chat_info.find('li[data-message-id="' + messageId + '"]');
+			if (msgLi.length > 0) {
+				// 移除消息内容（包括文本和图片）
+				msgLi.find('div:not(.recalled-msg)').remove();
+				msgLi.find('img.load-img').remove();
+				// 移除撤回按钮
+				msgLi.find('.recall-btn').remove();
+				// 添加已撤回提示（如果不存在）
+				if (msgLi.find('.recalled-msg').length === 0) {
+					msgLi.append('<div class="recalled-msg">消息已撤回</div>');
+				}
+			}
+			break;
 				case -1:
 					ws.close() // 主动close掉
 					isServeClose = 1
@@ -497,7 +522,7 @@ $(document).ready(function(){
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-send-time="' + Date.now() + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div><span class="recall-btn" style="display:none;cursor:pointer;color:#999;font-size:12px;margin-top:5px;">撤回</span></li>');
 		}
 	}
 	$('.text input').keypress(function(e) {
@@ -534,6 +559,74 @@ function isPrivateChat()
 {
 	return window.location.href.search('private-chat') > 0
 }
+
+// 显示撤回按钮（2分钟内有效）
+function showRecallBtn(liElement) {
+	if (!liElement || liElement.length === 0) return;
+	
+	var recallBtn = liElement.find('.recall-btn');
+	if (recallBtn.length === 0) return;
+	
+	// 显示撤回按钮
+	recallBtn.show();
+	
+	// 2分钟后隐藏撤回按钮
+	setTimeout(function() {
+		recallBtn.hide();
+	}, 2 * 60 * 1000);
+}
+
+// 发送撤回消息请求
+function sendRecallMessage(messageId) {
+	let send_data = JSON.stringify({
+		"status": 6,
+		"data": {
+			"uid": $('.room').attr('data-uid').toString(),
+			"username": $('.room').attr('data-username'),
+			"avatar_id": $('.room').attr('data-avatar_id'),
+			"room_id": $('.room').attr('data-room_id'),
+			"message_id": messageId,
+			"content": "",
+			"image_url" : "",
+			"to_uid" : "0",
+		}
+	});
+	ws.send(send_data);
+}
+
+// 页面加载完成后绑定撤回按钮点击事件
+$(document).on('click', '.recall-btn', function(e) {
+	e.stopPropagation();
+	var liElement = $(this).closest('li');
+	var messageId = liElement.attr('data-message-id');
+	if (messageId) {
+		sendRecallMessage(parseInt(messageId));
+	}
+});
+
+// 鼠标悬停显示撤回按钮（2分钟内的消息）
+$(document).on('mouseenter', 'li.right', function() {
+	var sendTime = $(this).attr('data-send-time');
+	var messageId = $(this).attr('data-message-id');
+	if (!sendTime && messageId) {
+		// 从历史消息加载的，使用 created_at
+		var createdAt = $(this).attr('data-created-at');
+		if (createdAt) {
+			var createdTime = new Date(createdAt).getTime();
+			if (Date.now() - createdTime < 2 * 60 * 1000) {
+				$(this).find('.recall-btn').show();
+			}
+		}
+	} else if (sendTime) {
+		if (Date.now() - parseInt(sendTime) < 2 * 60 * 1000) {
+			$(this).find('.recall-btn').show();
+		}
+	}
+});
+
+$(document).on('mouseleave', 'li.right', function() {
+	$(this).find('.recall-btn').hide();
+});
 
 function toLow() {
 	$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({

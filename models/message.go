@@ -1,22 +1,24 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
 	gorm.Model
-	ID        uint
-	UserId    int
-	ToUserId  int
-	RoomId    int
-	Content   string
-	ImageUrl  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uint
+	UserId     int
+	ToUserId   int
+	RoomId     int
+	Content    string
+	ImageUrl   string
+	IsRecalled int `gorm:"default:0"` // 0: 未撤回, 1: 已撤回
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func SaveContent(value interface{}) Message {
@@ -39,7 +41,33 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+// RecallMessage 撤回消息
+func RecallMessage(messageId int, userId int) error {
+	var m Message
+	result := ChatDB.First(&m, messageId)
+	if result.Error != nil {
+		return result.Error
+	}
+	// 只能撤回自己的消息
+	if m.UserId != userId {
+		return gorm.ErrRecordNotFound
+	}
+	// 检查是否在2分钟内
+	if time.Since(m.CreatedAt) > 2*time.Minute {
+		return gorm.ErrRecordNotFound
+	}
+	m.IsRecalled = 1
+	return ChatDB.Save(&m).Error
+}
+
+// GetMessageById 根据ID获取消息
+func GetMessageById(messageId int) (Message, error) {
+	var m Message
+	result := ChatDB.First(&m, messageId)
+	return m, result.Error
+}
+
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -52,7 +80,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
@@ -61,7 +89,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -77,7 +105,7 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})

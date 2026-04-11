@@ -65,22 +65,29 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        {{ if .is_recallable }}
+                        <li class="right recallable-message" data-msg-id="{{ .id }}">
+                        {{ else }}
+                        <li class="right" data-msg-id="{{ .id }}">
+                        {{ end }}
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
                             {{ if eq .image_url $nullSrl }}
 
-                            <div>{{ .content }}</div>
+                            <div class="msg-content">{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            <div class="msg-content"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                            {{ if .is_recallable }}
+                            <div class="recall-btn" style="display:none; cursor:pointer; color:#409EFF; font-size:12px; margin-top:5px; text-decoration: underline;">撤回</div>
+                            {{ end }}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
@@ -136,6 +143,31 @@
 <script>
 
     $(document).ready(function () {
+        // 对于已经有 recallable-message 类的历史消息，设置 2 分钟后隐藏
+        $('.chat_info li.recallable-message').each(function() {
+            let li = $(this);
+            let createdAt = li.find('i').text();
+            if (createdAt) {
+                try {
+                    let dateStr = createdAt.replace(/-/g, '/');
+                    let createdTime = new Date(dateStr).getTime();
+                    if (!isNaN(createdTime)) {
+                        let nowTime = Date.now();
+                        let timeDiff = nowTime - createdTime;
+                        let remainingTime = 2 * 60 * 1000 - timeDiff;
+                        if (remainingTime > 0) {
+                            setTimeout(function() {
+                                li.removeClass('recallable-message');
+                                li.find('.recall-btn').hide();
+                            }, remainingTime);
+                        }
+                    }
+                } catch(e) {
+                    console.log('处理时间失败', e);
+                }
+            }
+        });
+
         // WebSocketConnect
 
         let userInfo = {

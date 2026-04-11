@@ -1,11 +1,14 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
+
+const RecallTimeLimit = 2 * time.Minute
 
 type Message struct {
 	gorm.Model
@@ -39,7 +42,7 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -52,16 +55,26 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
 	}
 
+	for i := range results {
+		createdAt, ok := results[i]["created_at"].(time.Time)
+		if ok {
+			isRecallable := time.Since(createdAt) < RecallTimeLimit
+			results[i]["is_recallable"] = isRecallable
+		} else {
+			results[i]["is_recallable"] = false
+		}
+	}
+
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -77,11 +90,30 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
 	}
 
 	return results
+}
+
+func RecallMessage(msgId uint, userId int) bool {
+	var msg Message
+	err := ChatDB.First(&msg, msgId).Error
+	if err != nil {
+		return false
+	}
+
+	if msg.UserId != userId {
+		return false
+	}
+
+	if time.Since(msg.CreatedAt) > RecallTimeLimit {
+		return false
+	}
+
+	err = ChatDB.Delete(&msg).Error
+	return err == nil
 }

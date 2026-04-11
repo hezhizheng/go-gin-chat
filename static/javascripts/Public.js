@@ -109,7 +109,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
 					{
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
@@ -118,6 +118,25 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							'</i><div class="aaa">' +
 							received_msg.data.content +
 							'</div></li>');
+					}
+					if ( received_msg.data.uid == userInfo.uid && !isPrivateChat())
+					{
+						let lastLi = chat_info.find('li.right:last');
+						if (lastLi.length > 0) {
+							lastLi.addClass('recallable-message');
+							lastLi.attr('data-msg-id', received_msg.data.msg_id);
+							let recallBtn = lastLi.find('.recall-btn');
+							recallBtn.show();
+							lastLi.data('send-time', Date.now());
+							let sendTime = Date.now();
+							let checkInterval = setInterval(function() {
+								if (Date.now() - sendTime > 2 * 60 * 1000) {
+									recallBtn.hide();
+									lastLi.removeClass('recallable-message');
+									clearInterval(checkInterval);
+								}
+							}, 1000);
+						}
 					}
 					break;
 				case -1:
@@ -160,6 +179,22 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					if (!isPrivateChat())
 					{
 						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+					}
+					break;
+				case 6:
+					console.log('收到撤回消息响应:', received_msg);
+					if (received_msg.data.content === "success") {
+						let msgId = received_msg.data.msg_id;
+						console.log('要撤回的消息ID:', msgId);
+						let targetLi = chat_info.find('li[data-msg-id="' + msgId + '"]');
+						console.log('找到的目标元素:', targetLi);
+						if (targetLi.length > 0) {
+							targetLi.removeClass('right left recallable-message');
+							targetLi.addClass('systeminfo');
+							targetLi.html('<span>【' + received_msg.data.username + '】 撤回了一条消息</span>');
+						}
+					} else {
+						layer.msg("撤回失败，可能已超过2分钟或无权撤回");
 					}
 					break;
 				default:
@@ -364,6 +399,44 @@ $(document).ready(function(){
 
 	});
 
+	// 鼠标悬停显示撤回按钮
+	$(document).on('mouseenter', '.recallable-message', function() {
+		$(this).find('.recall-btn').show();
+	});
+	$(document).on('mouseleave', '.recallable-message', function() {
+		$(this).find('.recall-btn').hide();
+	});
+
+	// 撤回消息点击事件
+	$(document).on('click', '.recall-btn', function(e) {
+		e.stopPropagation();
+		let li = $(this).closest('li');
+		let msgId = li.attr('data-msg-id');
+		console.log('点击撤回按钮，msgId:', msgId);
+		
+		if (!msgId) {
+			return;
+		}
+		
+		if (msgId.startsWith('temp_')) {
+			layer.msg('消息正在同步中，请稍后再试');
+			return;
+		}
+		
+		let send_data = JSON.stringify({
+			"status": 6,
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": $('.room').attr('data-room_id'),
+				"msg_id": parseInt(msgId),
+			}
+		});
+		console.log('发送撤回消息:', send_data);
+		ws.send(send_data);
+	});
+
 	// 发送消息
 	
 	//$('.text input').focus();
@@ -497,7 +570,8 @@ $(document).ready(function(){
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let msgId = 'temp_' + Date.now();
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right recallable-message" data-msg-id="' + msgId + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="msg-content">' + message  +'</div><div class="recall-btn" style="display:none; cursor:pointer; color:#409EFF; font-size:12px; margin-top:5px; text-decoration: underline;">撤回</div></li>');
 		}
 	}
 	$('.text input').keypress(function(e) {

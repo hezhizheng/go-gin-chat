@@ -569,6 +569,9 @@ func handleRecallMessage(cl msg) {
 
 	if toUid == "0" {
 		notify(cl.Conn, string(serveMsgStr))
+		chNotify <- 1
+		cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+		<-chNotify
 	} else {
 		chNotify <- 1
 		toC := findToUserCoonClient()

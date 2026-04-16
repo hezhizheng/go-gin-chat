@@ -264,8 +264,13 @@ func write(done <-chan struct{}) {
 		case cl := <-sMsg:
 			serveMsgStr, _ := json.Marshal(cl)
 			switch cl.Status {
-			case msgTypeOnline, msgTypeSend:
+			case msgTypeOnline:
 				notify(cl.Conn, string(serveMsgStr))
+			case msgTypeSend:
+				notify(cl.Conn, string(serveMsgStr))
+				chNotify <- 1
+				cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+				<-chNotify
 			case msgTypeGetOnlineUser:
 				chNotify <- 1
 				cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
@@ -276,6 +281,7 @@ func write(done <-chan struct{}) {
 				if toC != nil {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
+				cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				<-chNotify
 			case msgTypeRecall:
 				handleRecallMessage(cl)

@@ -1,22 +1,24 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
 	gorm.Model
-	ID        uint
-	UserId    int
-	ToUserId  int
-	RoomId    int
-	Content   string
-	ImageUrl  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uint
+	UserId     int
+	ToUserId   int
+	RoomId     int
+	Content    string
+	ImageUrl   string
+	IsRecalled bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func SaveContent(value interface{}) Message {
@@ -39,7 +41,7 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -52,7 +54,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
@@ -61,7 +63,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -77,11 +79,37 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
 	}
 
 	return results
+}
+
+func GetMessageById(id uint) *Message {
+	var message Message
+	if err := ChatDB.First(&message, id).Error; err != nil {
+		return nil
+	}
+	return &message
+}
+
+func RecallMessage(id uint) error {
+	return ChatDB.Model(&Message{}).Where("id = ?", id).Update("is_recalled", true).Error
+}
+
+func CanRecallMessage(message *Message, userId int) bool {
+	if message == nil {
+		return false
+	}
+	if message.UserId != userId {
+		return false
+	}
+	if message.IsRecalled {
+		return false
+	}
+	timeDiff := time.Now().Sub(message.CreatedAt)
+	return timeDiff <= 2*time.Minute
 }

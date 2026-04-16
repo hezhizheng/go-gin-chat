@@ -33,6 +33,7 @@ type wsClients struct {
 }
 
 type msgData struct {
+	MsgId    uint          `json:"msg_id"`
 	Uid      string        `json:"uid"`
 	Username string        `json:"username"`
 	AvatarId string        `json:"avatar_id"`
@@ -89,6 +90,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -275,6 +277,8 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeRecall:
+				handleRecallMessage(cl)
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -454,9 +458,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,14 +469,14 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
-
+		data.MsgId = savedMsg.ID
 	}
 
 	if status == msgTypeGetOnlineUser {
@@ -512,4 +517,59 @@ func GetOnlineUserCount() int {
 
 func GetOnlineRoomUserCount(roomId int) int {
 	return len(rooms[roomId])
+}
+
+func handleRecallMessage(cl msg) {
+	clientMsgLock.Lock()
+	msgId := clientMsg.Data.MsgId
+	uid := clientMsg.Data.Uid
+	toUid := clientMsg.Data.ToUid
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	intUid, _ := strconv.Atoi(uid)
+
+	message := models.GetMessageById(msgId)
+	if message == nil {
+		log.Println("消息不存在:", msgId)
+		return
+	}
+
+	if !models.CanRecallMessage(message, intUid) {
+		log.Println("无法撤回消息:", msgId)
+		return
+	}
+
+	err := models.RecallMessage(msgId)
+	if err != nil {
+		log.Println("撤回消息失败:", err)
+		return
+	}
+
+	data := msgData{
+		MsgId:    msgId,
+		Uid:      uid,
+		Username: cl.Data.Username,
+		RoomId:   roomId,
+		Time:     time.Now().UnixNano() / 1e6,
+	}
+
+	jsonStrServeMsg := msg{
+		Status: msgTypeRecall,
+		Data:   data,
+	}
+
+	serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
+
+	if toUid == "0" {
+		notify(cl.Conn, string(serveMsgStr))
+	} else {
+		chNotify <- 1
+		toC := findToUserCoonClient()
+		if toC != nil {
+			toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+		}
+		cl.Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
+		<-chNotify
+	}
 }

@@ -2,7 +2,7 @@
 
 > 练手小项目，为熟悉Gin框架跟websocket使用 💛💛💛💛💛💛
 
-> [在线demo](https://chat.hzz.cool/) (PS: 请尽量使用Chrome游览器，开启多个不同用户游览器即可体验效果)
+> [在线demo](https://chat.hzzio.top/) (PS: 请尽量使用Chrome游览器，开启多个不同用户游览器即可体验效果)
 
 > [github地址](https://github.com/hezhizheng/go-gin-chat)
 

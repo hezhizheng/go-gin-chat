@@ -391,4 +391,19 @@ ul{
 	color: #afa;
 }
 
+/* 撤回按钮样式 */
+.room .chat_info .recall-btn{
+	display: inline-block;
+	font-size: 12px;
+	color: #999;
+	cursor: pointer;
+	margin-top: 5px;
+	clear: both;
+	float: right;
+}
+.room .chat_info .recall-btn:hover{
+	color: #f66;
+	text-decoration: underline;
+}
+
 

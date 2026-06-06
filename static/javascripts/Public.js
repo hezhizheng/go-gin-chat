@@ -162,6 +162,21 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
 					}
 					break;
+				case 6:
+					// 消息撤回
+					if (received_msg.data.success) {
+						let msgId = received_msg.data.msg_id;
+						let msgLi = $('li[data-msg-id="' + msgId + '"]');
+						if (msgLi.length > 0) {
+							// 更新消息显示为撤回状态
+							msgLi.find('.withdraw-btn').remove();
+							msgLi.find('div').html('<span class="message-withdrawn">消息已撤回</span>');
+						}
+					} else {
+						// 撤回失败提示
+						layer.msg(received_msg.data.reason || '撤回失败');
+					}
+					break;
 				default:
 			}
 			// console.log("数据已接收...", received_msg);
@@ -492,14 +507,44 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
-		if(message!='') {
 
-			let myDate = new Date();
-			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+	// 撤回消息按钮点击事件
+	$(document).on('click', '.withdraw-btn', function(event) {
+		let msgLi = $(this).closest('li');
+		let msgId = msgLi.data('msg-id');
+		let createdAt = msgLi.data('created-at');
+		
+		// 检查消息是否超过2分钟
+		let msgTime = new Date(createdAt);
+		let now = new Date();
+		if ((now - msgTime) > 2 * 60 * 1000) {
+			layer.msg('消息已超过2分钟，无法撤回');
+			return;
 		}
+		
+		// 发送撤回请求
+		let send_data = JSON.stringify({
+			"status": 6, // 撤回消息状态码
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"room_id": $('.room').attr('data-room_id'),
+				"msg_id": msgId
+			}
+		});
+		
+		ws.send(send_data);
+	});
+	function sends_message (userName, userPortrait, message) {
+	if(message!='') {
+
+		let myDate = new Date();
+		let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString();
+		let isoTime = myDate.toISOString().slice(0, 19).replace('T', ' ');
+		// 生成临时msgId，服务器会返回真实的msgId
+		let tempMsgId = 'temp_' + Date.now();
+		$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-msg-id="' + tempMsgId + '" data-created-at="' + isoTime + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><a class="withdraw-btn" href="javascript:;">撤回</a><div class="">' + message  +'</div></li>');
 	}
+}
 	$('.text input').keypress(function(e) {
 		if (e.which == 13){
 			$('#subxx').click();

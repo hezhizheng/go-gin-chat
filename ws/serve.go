@@ -69,7 +69,8 @@ const msgTypeOnline = 1        // 上线
 const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
-const msgTypePrivateChat = 5  // 私聊
+const msgTypePrivateChat = 5   // 私聊
+const msgTypeWithdraw = 6      // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -132,6 +133,12 @@ func mainProcess(c *websocket.Conn) {
 		if clientMsg.Status == msgTypeGetOnlineUser {
 			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
 			c.WriteMessage(websocket.TextMessage, serveMsgStr)
+			continue
+		}
+
+		if clientMsg.Status == msgTypeWithdraw {
+			serveMsgStr = formatServeMsgStr(msgTypeWithdraw)
+			notify(c, string(serveMsgStr))
 			continue
 		}
 
@@ -269,6 +276,25 @@ func formatServeMsgStr(status int) []byte {
 	if status == msgTypeGetOnlineUser {
 		data["count"] = GetOnlineRoomUserCount(roomIdInt)
 		data["list"] = onLineUserList(roomIdInt)
+	}
+
+	if status == msgTypeWithdraw {
+		// 处理消息撤回
+		msgIdStr := clientMsg.Data.(map[string]interface{})["msg_id"].(string)
+		msgId, _ := strconv.ParseUint(msgIdStr, 10, 32)
+		
+		// 获取用户ID
+		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+		intUid, _ := strconv.Atoi(stringUid)
+		
+		// 执行撤回操作
+		isSuccess := models.WithdrawMessage(uint(msgId), intUid)
+		
+		data["msg_id"] = msgId
+		data["success"] = isSuccess
+		if !isSuccess {
+			data["reason"] = "消息已超过撤回时间或无权限撤回"
+		}
 	}
 
 	jsonStrServeMsg := msg{

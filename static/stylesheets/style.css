@@ -296,6 +296,20 @@ ul{
 .room .chat_info .right>div{
 	float: right;
 }
+.room .chat_info .recall-btn{
+	display: inline-block;
+	margin-top: 5px;
+	padding: 2px 8px;
+	font-size: 12px;
+	color: #999;
+	cursor: pointer;
+	border-radius: 3px;
+	background-color: rgba(0,0,0,0.1);
+}
+.room .chat_info .recall-btn:hover{
+	color: #f00;
+	background-color: rgba(255,0,0,0.1);
+}
 .room .chat_info .systeminfo span{
 	display: block;
 	width: 200px;

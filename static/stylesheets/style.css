@@ -391,4 +391,33 @@ ul{
 	color: #afa;
 }
 
+/* 撤回按钮样式 */
+.room .chat_info .recall-btn-container {
+	margin-top: 5px;
+	clear: both;
+}
+
+.room .chat_info .recall-btn {
+	padding: 2px 8px;
+	font-size: 12px;
+	background-color: #f0f0f0;
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+.room .chat_info .recall-btn:hover {
+	background-color: #e0e0e0;
+}
+
+.room .chat_info .right .recall-btn-container {
+	text-align: right;
+	margin-right: 60px;
+}
+
+.room .chat_info .left .recall-btn-container {
+	text-align: left;
+	margin-left: 60px;
+}
+
 

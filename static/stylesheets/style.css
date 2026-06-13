@@ -391,4 +391,26 @@ ul{
 	color: #afa;
 }
 
+/* 消息操作按钮 */
+.room .chat_info .message-actions {
+    margin-top: 5px;
+    font-size: 12px;
+    text-align: right;
+}
+
+.room .chat_info .recall-btn {
+    background-color: rgba(255, 255, 255, 0.5);
+    border: none;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 10px;
+    cursor: pointer;
+    color: #666;
+}
+
+.room .chat_info .recall-btn:hover {
+    background-color: rgba(255, 255, 255, 0.8);
+    color: #333;
+}
+
 

@@ -109,7 +109,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
 					{
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
@@ -118,6 +118,25 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							'</i><div class="aaa">' +
 							received_msg.data.content +
 							'</div></li>');
+					} else if (received_msg.data.uid == userInfo.uid && received_msg.data.msg_id) {
+						// 更新自己发送的消息，添加消息ID
+						let lastMsgLi = $('.main .chat_info li.right:last');
+						lastMsgLi.attr('data-msg-id', received_msg.data.msg_id);
+						// 存储消息发送时间
+						lastMsgLi.attr('data-send-time', Date.now());
+						// 检查是否超过2分钟
+						checkRecallTimeout(lastMsgLi);
+					}
+					break;
+				case 6:
+					if (received_msg.data.recall_tip) {
+						if (received_msg.data.recall_tip === '撤回成功') {
+							$('li[data-msg-id="' + received_msg.data.msg_id + '"]').addClass('recalled');
+							$('li[data-msg-id="' + received_msg.data.msg_id + '"] .aaa').html('<span style="color: #999;">[消息已撤回]</span>');
+							$('li[data-msg-id="' + received_msg.data.msg_id + '"] .recall-btn').remove();
+						} else {
+							layer.msg(received_msg.data.recall_tip);
+						}
 					}
 					break;
 				case -1:
@@ -332,7 +351,7 @@ $(document).ready(function(){
 				status = 5
 			}
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -349,10 +368,6 @@ $(document).ready(function(){
 
 			console.log("send_data",send_data)
 			ws.send(send_data);
-
-
-			// 滚动条滚到最下面
-			toLow();
 
 			// 解决input上传文件选择同一文件change事件不生效
 			event.target.value=''
@@ -386,8 +401,7 @@ $(document).ready(function(){
 				status = 5
 			}
 
-
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -403,10 +417,6 @@ $(document).ready(function(){
 			})
 
 			ws.send(send_data);
-
-			// 滚动条滚到最下面
-			toLow();
-
 		}
 
 		$("#emojionearea2")[0].emojioneArea.setText("")
@@ -494,12 +504,30 @@ $(document).ready(function(){
 	});
 	function sends_message (userName, userPortrait, message) {
 		if(message!='') {
-
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let recallBtn = '<a href="javascript:;" class="recall-btn" style="font-size:12px;color:#999;margin-left:10px;cursor:pointer;">撤回</a>';
+			let msgLi = '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="aaa">' + message  +'</div>' + recallBtn + '</li>';
+			$('.main .chat_info').html($('.main .chat_info').html() + msgLi);
+			toLow();
 		}
 	}
+
+	// 检查消息是否超过2分钟撤回时间
+	function checkRecallTimeout(msgLi) {
+		let sendTime = parseInt(msgLi.attr('data-send-time'));
+		let now = Date.now();
+		if (now - sendTime > 2 * 60 * 1000) {
+			msgLi.find('.recall-btn').remove();
+		}
+	}
+
+	// 定时检查所有消息是否超时
+	setInterval(function() {
+		$('.main .chat_info li.right[data-send-time]').each(function() {
+			checkRecallTimeout($(this));
+		});
+	}, 10000); // 每10秒检查一次
 	$('.text input').keypress(function(e) {
 		if (e.which == 13){
 			$('#subxx').click();
@@ -516,6 +544,28 @@ $(document).ready(function(){
 		});
 	}
 	setTimeout(replaceImg, 1500);
+
+	// 撤回按钮点击事件
+	$(document).on('click', '.recall-btn', function() {
+		let msgLi = $(this).closest('li');
+		let msgId = msgLi.attr('data-msg-id');
+		if (!msgId) {
+			layer.msg('消息ID不存在，无法撤回');
+			return;
+		}
+		
+		let send_data = JSON.stringify({
+			"status": 6,
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": $('.room').attr('data-room_id'),
+				"msg_id": parseInt(msgId)
+			}
+		});
+		ws.send(send_data);
+	});
 
 });
 
@@ -540,5 +590,31 @@ function toLow() {
 		scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
 	}, 500);
 }
+
+// 检查历史消息是否超时
+function checkHistoricalMessagesTimeout() {
+	$('.main .chat_info li.right[data-created-at]').each(function() {
+		let msgLi = $(this);
+		let createdAtStr = msgLi.attr('data-created-at');
+		if (!createdAtStr) return;
+		
+		// 将时间字符串转换为时间戳
+		let createdAt = new Date(createdAtStr.replace(/-/g, '/')).getTime();
+		let now = Date.now();
+		
+		// 如果超过2分钟，移除撤回按钮
+		if (now - createdAt > 2 * 60 * 1000) {
+			msgLi.find('.recall-btn').remove();
+		} else {
+			// 设置发送时间，用于后续检查
+			msgLi.attr('data-send-time', createdAt);
+		}
+	});
+}
+
+// 页面加载完成后检查历史消息
+$(document).ready(function() {
+	setTimeout(checkHistoricalMessagesTimeout, 500);
+});
 
 

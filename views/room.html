@@ -65,30 +65,37 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}" data-user-id="{{ .user_id }}" data-created-at="{{ .created_at }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
-                            {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
+                            {{ if eq .is_recalled 1 }}
+                                <div class="recalled-msg">消息已撤回</div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div>{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                    <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                                <button class="msg-recall-btn" onclick="recallMessage({{ .id }})" data-msg-id="{{ .id }}" data-created-at="{{ .created_at }}">撤回</button>
+                            {{end}}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
-                            {{ if eq .image_url $nullSrl }}
-
-                                <div>{{ .content }}</div>
-                            {{else}}
-                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            {{ if eq .is_recalled 1 }}
+                                <div class="recalled-msg">消息已撤回</div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div>{{ .content }}</div>
+                                {{else}}
+                                    <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{end}}
                             {{end}}
                         </li>
 
@@ -148,7 +155,25 @@
 
         // 滚动到底部
         toLow();
+        
+        // 页面加载后立即检查并隐藏超过2分钟的撤回按钮
+        hideExpiredRecallButtonsOnLoad();
     });
+    
+    // 页面加载时隐藏超过2分钟的撤回按钮
+    function hideExpiredRecallButtonsOnLoad() {
+        $('.msg-recall-btn').each(function() {
+            var createdAt = $(this).attr('data-created-at');
+            if (createdAt) {
+                var msgTime = new Date(createdAt).getTime();
+                var now = new Date().getTime();
+                var diff = now - msgTime;
+                if (diff > 2 * 60 * 1000) { // 超过2分钟
+                    $(this).hide();
+                }
+            }
+        });
+    }
 </script>
 
 <script>

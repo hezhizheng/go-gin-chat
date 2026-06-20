@@ -65,27 +65,32 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}" data-user-id="{{ .user_id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
-                            {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
-                                {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
-                                {{end}}
+                            {{ if eq .is_recalled 1 }}
+                                <div class="recalled-msg">{{ .content }}</div>
+                            {{ else if eq .image_url $nullSrl }}
+                                <div>{{ .content }}</div>
+                            {{else}}
+                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            {{end}}
+                            {{ if ne .is_recalled 1 }}
+                            <span class="recall-btn" onclick="recallMessage({{ .id }}, {{ .user_id }})" title="撤回消息">撤回</span>
+                            {{ end }}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .id }}" data-user-id="{{ .user_id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
-                            {{ if eq .image_url $nullSrl }}
-
+                            {{ if eq .is_recalled 1 }}
+                                <div class="recalled-msg">{{ .content }}</div>
+                            {{ else if eq .image_url $nullSrl }}
                                 <div>{{ .content }}</div>
                             {{else}}
                                 <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
@@ -149,6 +154,39 @@
         // 滚动到底部
         toLow();
     });
+
+    // 撤回消息函数
+    function recallMessage(msgId, userId) {
+        let currentUid = parseInt($('.room').attr('data-uid'));
+
+        // 只能撤回自己的消息
+        if (userId !== currentUid) {
+            layer.msg('只能撤回自己发送的消息');
+            return;
+        }
+
+        // 确认撤回
+        layer.confirm('确定要撤回这条消息吗？', {
+            btn: ['确定', '取消']
+        }, function(index){
+            layer.close(index);
+
+            // 发送撤回请求
+            let send_data = JSON.stringify({
+                "status": 6, // msgTypeRecall
+                "data": {
+                    "uid": $('.room').attr('data-uid').toString(),
+                    "username": $('.room').attr('data-username'),
+                    "avatar_id": $('.room').attr('data-avatar_id'),
+                    "room_id": $('.room').attr('data-room_id'),
+                    "msg_id": msgId,
+                }
+            });
+
+            ws.send(send_data);
+            console.log("发送撤回请求:", send_data);
+        });
+    }
 </script>
 
 <script>

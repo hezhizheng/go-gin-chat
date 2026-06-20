@@ -106,10 +106,20 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
+					if ( received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+						// 自己发送的消息，更新消息ID
+						let lastRightMsg = chat_info.find('li.right').last();
+						if (lastRightMsg.length > 0 && !lastRightMsg.attr('data-msg-id')) {
+							lastRightMsg.attr('data-msg-id', received_msg.data.msg_id);
+							if (received_msg.data.msg_id) {
+								window.messageIdMap[received_msg.data.msg_id] = true;
+							}
+						}
+					} else if ( received_msg.data.uid != userInfo.uid && !isPrivateChat()) {
+						// 其他人发送的消息，显示在左侧
+						let msgIdAttr = received_msg.data.msg_id ? 'data-msg-id="' + received_msg.data.msg_id + '"' : '';
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="left" ' + msgIdAttr + '><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
@@ -156,13 +166,21 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					//console.log("在线用户",received_msg);
 					break;
 				case 5:
-					// 私聊通知
-					if (!isPrivateChat())
-					{
-						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
-					}
-					break;
-				default:
+				// 私聊通知
+				if (!isPrivateChat())
+				{
+					layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+				}
+				break;
+			case 6:
+				// 撤回消息通知
+				handleRecallMessage(received_msg.data);
+				break;
+			case -2:
+				// 撤回失败
+				layer.msg(received_msg.data.content);
+				break;
+			default:
 			}
 			// console.log("数据已接收...", received_msg);
 
@@ -387,8 +405,7 @@ $(document).ready(function(){
 			}
 
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
-
+			// 先发送消息到服务器，等待返回消息ID后再显示
 			let send_data = JSON.stringify({
 				"status": status,
 				"data": {
@@ -397,10 +414,12 @@ $(document).ready(function(){
 					"avatar_id": $('.room').attr('data-avatar_id'),
 					"room_id": $('.room').attr('data-room_id'),
 					"content": str,
-					"image_url" : "",
 					"to_uid" : to_uid,
 				}
 			})
+
+			// 临时显示消息（无ID）
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str);
 
 			ws.send(send_data);
 
@@ -492,12 +511,63 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
+	// 存储消息ID和DOM元素的映射
+	window.messageIdMap = {};
+
+	function sends_message (userName, userPortrait, message, msgId = '') {
 		if(message!='') {
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let msgIdAttr = msgId ? 'data-msg-id="' + msgId + '"' : '';
+			let msgHtml = '<li class="right" ' + msgIdAttr + '><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>';
+			$('.main .chat_info').html($('.main .chat_info').html() + msgHtml);
+
+			// 如果有消息ID，存储映射关系
+			if (msgId) {
+				window.messageIdMap[msgId] = true;
+			}
+		}
+	}
+
+	// 处理撤回消息
+	function handleRecallMessage(data) {
+		let msgId = data.msg_id;
+		if (msgId) {
+			// 查找并替换消息内容
+			let msgElement = $('[data-msg-id="' + msgId + '"]');
+			if (msgElement.length > 0) {
+				msgElement.find('div').html('<span style="color: #999; font-style: italic;">该消息已被撤回</span>');
+				msgElement.removeAttr('data-msg-id'); // 移除ID，防止重复撤回
+			}
+		}
+	}
+
+	// 发送撤回消息请求
+	function sendRecallMessage(msgId, roomId, toUid = '0') {
+		let send_data = JSON.stringify({
+			"status": 6,
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": roomId,
+				"content": msgId, // 使用content字段传递消息ID
+				"to_uid": toUid,
+			}
+		});
+		ws.send(send_data);
+	}
+
+	// 检查消息是否可以撤回（2分钟内）
+	function canRecallMessage(msgTimeStr) {
+		try {
+			let msgTime = new Date(msgTimeStr);
+			let now = new Date();
+			let diff = now - msgTime;
+			return diff <= 2 * 60 * 1000; // 2分钟内
+		} catch (e) {
+			return false;
 		}
 	}
 	$('.text input').keypress(function(e) {

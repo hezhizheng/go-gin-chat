@@ -9,9 +9,55 @@
     <link rel="stylesheet" href="/static/stylesheets/style.css">
     <link rel="stylesheet" href="/static/emoji/emojionearea.min.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
+    <style>
+        /* 右键菜单样式 */
+        .context-menu {
+            display: none;
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 10000;
+            min-width: 120px;
+        }
+        .context-menu ul {
+            list-style: none;
+            margin: 0;
+            padding: 5px 0;
+        }
+        .context-menu li {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+        .context-menu li:hover {
+            background: #f0f0f0;
+        }
+        .context-menu li.disabled {
+            color: #999;
+            cursor: not-allowed;
+        }
+        .context-menu li.disabled:hover {
+            background: #fff;
+        }
+        /* 撤回消息样式 */
+        .recalled-msg {
+            color: #999;
+            font-style: italic;
+        }
+    </style>
 </head>
 <body id="body-room" class="room" data-uid="{{ .user_info.uid }}" data-username="{{ .user_info.username }}"
       data-avatar_id="{{ .user_info.avatar_id }}" data-room_id="{{ .room_id }}">
+
+<!-- 右键菜单 -->
+<div class="context-menu" id="contextMenu">
+    <ul>
+        <li id="recallMenuItem">撤回消息</li>
+    </ul>
+</div>
 
 <div class="scrollbar-macosx">
     <div id="mescroll" class="main container mescroll">
@@ -34,30 +80,36 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
-                            {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
+                            {{if eq .is_recalled 1}}
+                                <div><span style="color: #999; font-style: italic;">该消息已被撤回</span></div>
+                            {{else}}
+                                {{ if eq .image_url $nullSrl }}
+                                <div>{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                            {{end}}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
-                            {{ if eq .image_url $nullSrl }}
-
-                                <div>{{ .content }}</div>
+                            {{if eq .is_recalled 1}}
+                                <div><span style="color: #999; font-style: italic;">该消息已被撤回</span></div>
                             {{else}}
+                                {{ if eq .image_url $nullSrl }}
+                                <div>{{ .content }}</div>
+                                {{else}}
                                 <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{end}}
                             {{end}}
                         </li>
 
@@ -120,6 +172,146 @@
             }
         }
     })
+</script>
+
+<script>
+    // 右键菜单相关变量
+    var currentMsgElement = null;
+    var currentMsgId = null;
+    var currentMsgTime = null;
+
+    // 右键菜单事件
+    $(document).on('contextmenu', '.chat_info li.right', function(e) {
+        e.preventDefault();
+        currentMsgElement = $(this);
+        currentMsgId = $(this).attr('data-msg-id');
+        currentMsgTime = $(this).find('i').text();
+
+        var menu = $('#contextMenu');
+        var menuItem = $('#recallMenuItem');
+
+        console.log('右键菜单 - msgId:', currentMsgId, 'time:', currentMsgTime);
+
+        // 检查是否有消息ID
+        if (!currentMsgId) {
+            menuItem.addClass('disabled').text('消息尚未同步，无法撤回');
+        } else if (!canRecallByTime(currentMsgTime)) {
+            // 超过2分钟
+            menuItem.addClass('disabled').text('超过2分钟无法撤回');
+        } else {
+            // 可以撤回
+            menuItem.removeClass('disabled').text('撤回消息');
+        }
+
+        // 显示菜单
+        menu.css({
+            display: 'block',
+            left: e.pageX,
+            top: e.pageY
+        });
+    });
+
+    // 点击其他地方隐藏菜单
+    $(document).click(function() {
+        $('#contextMenu').hide();
+    });
+
+    // 撤回菜单点击事件
+    $('#recallMenuItem').click(function() {
+        if ($(this).hasClass('disabled')) {
+            return;
+        }
+        if (currentMsgId && currentMsgElement) {
+            // 发送撤回请求
+            let roomId = $('.room').attr('data-room_id');
+            let toUid = getQueryVariable('uid');
+            sendRecallMsg(currentMsgId, roomId, toUid);
+            $('#contextMenu').hide();
+        }
+    });
+
+    // 检查消息是否在2分钟内
+    function canRecallByTime(timeStr) {
+        try {
+            // 将时间字符串转换为日期对象（兼容格式：2024-01-15 10:30:00）
+            var msgTime = parseDateTime(timeStr);
+            if (!msgTime) return false;
+            var now = new Date();
+            var diff = now - msgTime;
+            return diff <= 2 * 60 * 1000; // 2分钟内
+        } catch (e) {
+            console.log('时间解析错误:', e);
+            return false;
+        }
+    }
+
+    // 解析日期时间字符串（兼容多种格式）
+    function parseDateTime(timeStr) {
+        if (!timeStr) return null;
+        
+        // 尝试直接解析
+        var date = new Date(timeStr);
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+        
+        // 处理格式：2024-01-15 10:30:00
+        var regex = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/;
+        var matches = timeStr.match(regex);
+        if (matches) {
+            var year = parseInt(matches[1], 10);
+            var month = parseInt(matches[2], 10) - 1; // 月份从0开始
+            var day = parseInt(matches[3], 10);
+            var hour = parseInt(matches[4], 10);
+            var minute = parseInt(matches[5], 10);
+            var second = parseInt(matches[6], 10);
+            return new Date(year, month, day, hour, minute, second);
+        }
+        
+        // 处理格式：1/15/2024, 10:30:00 AM
+        date = new Date(Date.parse(timeStr));
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+        
+        return null;
+    }
+
+    // 发送撤回请求
+    function sendRecallMsg(msgId, roomId, toUid) {
+        // 使用 websocketHeartbeatJs 实例发送消息
+        if (typeof websocketHeartbeatJs !== 'undefined' && websocketHeartbeatJs.ws && websocketHeartbeatJs.ws.readyState === WebSocket.OPEN) {
+            let send_data = JSON.stringify({
+                "status": 6,
+                "data": {
+                    "uid": $('.room').attr('data-uid').toString(),
+                    "username": $('.room').attr('data-username'),
+                    "avatar_id": $('.room').attr('data-avatar_id'),
+                    "room_id": roomId,
+                    "content": msgId,
+                    "to_uid": toUid || "0",
+                }
+            });
+            console.log('发送撤回请求:', send_data);
+            websocketHeartbeatJs.ws.send(send_data);
+        } else {
+            console.log('WebSocket 未连接');
+            layer.msg('连接已断开，请刷新页面重试');
+        }
+    }
+
+    // 获取URL参数
+    function getQueryVariable(variable) {
+        var query = window.location.search.substring(1);
+        var vars = query.split("&");
+        for (var i = 0; i < vars.length; i++) {
+            var pair = vars[i].split("=");
+            if (pair[0] == variable) {
+                return pair[1];
+            }
+        }
+        return false;
+    }
 </script>
 
 </html>

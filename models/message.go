@@ -1,10 +1,11 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
@@ -39,11 +40,35 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
+func RecallMessage(msgId uint, userId int) (bool, string, Message) {
+	var m Message
+	if err := ChatDB.First(&m, msgId).Error; err != nil {
+		return false, "消息不存在", m
+	}
+
+	if m.UserId != userId {
+		return false, "只能撤回自己的消息", m
+	}
+
+	// 检查是否超过2分钟
+	now := time.Now()
+	if now.Sub(m.CreatedAt) > 2*time.Minute {
+		return false, "消息已超过2分钟，无法撤回", m
+	}
+
+	// 标记消息为已撤回（修改内容）
+	m.Content = "[消息已撤回]"
+	m.ImageUrl = ""
+	ChatDB.Save(&m)
+
+	return true, "撤回成功", m
+}
+
 func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
-		Select("messages.*, users.username ,users.avatar_id").
+		Select("messages.*, users.username ,users.avatar_id, UNIX_TIMESTAMP(messages.created_at) as created_at_timestamp").
 		Joins("INNER Join users on users.id = messages.user_id").
 		Where("messages.room_id = " + roomId).
 		Where("messages.to_user_id = 0").
@@ -65,7 +90,7 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
-		Select("messages.*, users.username ,users.avatar_id").
+		Select("messages.*, users.username ,users.avatar_id, UNIX_TIMESTAMP(messages.created_at) as created_at_timestamp").
 		Joins("INNER Join users on users.id = messages.user_id").
 		Where("(" +
 			"(" + "messages.user_id = " + uid + " and messages.to_user_id=" + toUId + ")" +

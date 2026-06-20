@@ -14,6 +14,10 @@ let websocketHeartbeatJs = new WebsocketHeartbeatJs(websocketHeartbeatJsOptions)
 let ws = websocketHeartbeatJs;
 // let ws = new WebSocket("ws://"+ window.location.host +"/ws");
 
+// 全局变量：存储待确认的消息（临时ID -> 消息内容）
+var pendingMessages = {};
+var tempMsgIdCounter = 0;
+
 function _time(time = +new Date()) {
 	var date = new Date(time + 8 * 3600 * 1000); // 增加8小时
 	return date.toJSON().substr(0, 19).replace('T', ' ');
@@ -106,20 +110,30 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
-						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
-							received_msg.data.avatar_id +
-							'.png" alt=""><b>' +
-							received_msg.data.username +
-							'</b><i>' +
-							time +
-							'</i><div class="aaa">' +
-							received_msg.data.content +
-							'</div></li>');
+				if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
+				{
+					chat_info.html(chat_info.html() +
+						'<li class="left" data-msg-id="' + received_msg.data.msg_id + '" data-user-id="' + received_msg.data.uid + '"><img src="/static/images/user/' +
+						received_msg.data.avatar_id +
+						'.png" alt=""><b>' +
+						received_msg.data.username +
+						'</b><i>' +
+						time +
+						'</i><div class="msg-content">' +
+						received_msg.data.content +
+						'</div></li>');
+				} else if (received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+					// 自己发送的消息，根据 temp_msg_id 更新消息ID
+					var tempMsgId = received_msg.data.temp_msg_id;
+					var $msg = $('.main .chat_info li.right[data-temp-msg-id="' + tempMsgId + '"]');
+					if ($msg.length) {
+						$msg.attr('data-msg-id', received_msg.data.msg_id);
+						$msg.removeAttr('data-temp-msg-id');
+						// 从待确认列表中移除
+						delete pendingMessages[tempMsgId];
 					}
-					break;
+				}
+				break;
 				case -1:
 					ws.close() // 主动close掉
 					isServeClose = 1
@@ -156,13 +170,22 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					//console.log("在线用户",received_msg);
 					break;
 				case 5:
-					// 私聊通知
-					if (!isPrivateChat())
-					{
-						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
-					}
-					break;
-				default:
+				// 私聊通知
+				if (!isPrivateChat())
+				{
+					layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+				}
+				break;
+			case 6:
+				// 消息撤回
+				var msgId = received_msg.data.msg_id;
+				$('li[data-msg-id="' + msgId + '"]').find('.msg-content').replaceWith('<div class="recalled-msg">消息已撤回</div>');
+				break;
+			case -2:
+				// 撤回失败
+				layer.msg(received_msg.data.content);
+				break;
+			default:
 			}
 			// console.log("数据已接收...", received_msg);
 
@@ -332,7 +355,11 @@ $(document).ready(function(){
 				status = 5
 			}
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			// 生成临时消息ID
+			var tempMsgId = 'temp_' + (++tempMsgIdCounter);
+			pendingMessages[tempMsgId] = str;
+
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempMsgId); // sends_message(昵称,头像id,聊天内容,临时ID);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -344,6 +371,7 @@ $(document).ready(function(){
 					"image_url": res.data.url,
 					"content": str,
 					"to_uid" : to_uid,
+					"temp_msg_id": tempMsgId,
 				}
 			})
 
@@ -387,7 +415,11 @@ $(document).ready(function(){
 			}
 
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			// 生成临时消息ID
+			var tempMsgId = 'temp_' + (++tempMsgIdCounter);
+			pendingMessages[tempMsgId] = str;
+
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempMsgId); // sends_message(昵称,头像id,聊天内容,临时ID);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -399,6 +431,7 @@ $(document).ready(function(){
 					"content": str,
 					"image_url" : "",
 					"to_uid" : to_uid,
+					"temp_msg_id": tempMsgId,
 				}
 			})
 
@@ -492,12 +525,12 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
+	function sends_message (userName, userPortrait, message, tempMsgId) {
 		if(message!='') {
-
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			var tempIdAttr = tempMsgId ? 'data-temp-msg-id="' + tempMsgId + '"' : '';
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" ' + tempIdAttr + ' data-user-id="' + $('.room').attr('data-uid') + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="msg-content">' + message  +'</div></li>');
 		}
 	}
 	$('.text input').keypress(function(e) {
@@ -531,14 +564,70 @@ function getQueryVariable(variable)
 }
 
 function isPrivateChat()
-{
-	return window.location.href.search('private-chat') > 0
-}
+	{
+		return window.location.href.search('private-chat') > 0
+	}
 
-function toLow() {
-	$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
-		scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
-	}, 500);
-}
+	function toLow() {
+		$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
+			scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
+		}, 500);
+	}
+
+	// 右键菜单 - 撤回消息
+	$(document).on('contextmenu', '.chat_info li.right', function(e) {
+		var msgId = $(this).attr('data-msg-id');
+		var tempMsgId = $(this).attr('data-temp-msg-id');
+		var userId = $(this).attr('data-user-id');
+		var currentUserId = $('.room').attr('data-uid');
+
+		// 只能撤回自己的消息
+		if (userId != currentUserId) {
+			return true;
+		}
+
+		// 如果没有 msgId 但有 tempMsgId，说明消息还在等待服务器确认，暂时不能撤回
+		if (!msgId && tempMsgId) {
+			layer.msg('消息正在发送中，请稍后再试');
+			return false;
+		}
+
+		// 检查是否有撤回菜单
+		if ($('#recall-context-menu').length === 0) {
+			$('body').append('<div id="recall-context-menu" style="display:none;position:absolute;z-index:9999;background:#fff;border:1px solid #ccc;padding:5px 10px;cursor:pointer;border-radius:3px;box-shadow:0 2px 5px rgba(0,0,0,0.2);">撤回消息</div>');
+		}
+
+		var $menu = $('#recall-context-menu');
+		$menu.css({
+			top: e.pageY + 'px',
+			left: e.pageX + 'px',
+			display: 'block'
+		}).attr('data-msg-id', msgId);
+
+		return false;
+	});
+
+	// 点击撤回菜单
+	$(document).on('click', '#recall-context-menu', function() {
+		var msgId = $(this).attr('data-msg-id');
+		if (msgId) {
+			// 发送撤回消息
+			let send_data = JSON.stringify({
+				"status": 6,
+				"data": {
+					"uid": $('.room').attr('data-uid').toString(),
+					"room_id": $('.room').attr('data-room_id'),
+					"msg_id": parseInt(msgId)
+				}
+			});
+			ws.send(send_data);
+		}
+		$(this).hide();
+	});
+
+	// 点击其他地方隐藏右键菜单
+	$(document).on('click', function() {
+		$('#recall-context-menu').hide();
+	});
 
 

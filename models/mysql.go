@@ -8,9 +8,11 @@ import (
 
 var ChatDB *gorm.DB
 
-func InitDB()  {
+func InitDB() {
 	// 参考 https://github.com/go-sql-driver/mysql#dsn-data-source-name 获取详情
 	dsn := viper.GetString(`mysql.dsn`)
 	ChatDB, _ = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	// 自动迁移数据库表结构
+	ChatDB.AutoMigrate(&Message{})
 	return
 }

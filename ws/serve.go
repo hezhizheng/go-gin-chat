@@ -16,7 +16,7 @@ type Serve struct {
 	ServeInterface
 }
 
-func (serve *Serve) RunWs(gin *gin.Context)  {
+func (serve *Serve) RunWs(gin *gin.Context) {
 	Run(gin)
 }
 
@@ -24,7 +24,7 @@ func (serve *Serve) GetOnlineUserCount() int {
 	return GetOnlineUserCount()
 }
 
-func (serve *Serve) GetOnlineRoomUserCount(roomId int) int  {
+func (serve *Serve) GetOnlineRoomUserCount(roomId int) int {
 	return GetOnlineRoomUserCount(roomId)
 }
 
@@ -69,7 +69,8 @@ const msgTypeOnline = 1        // 上线
 const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
-const msgTypePrivateChat = 5  // 私聊
+const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -135,8 +136,12 @@ func mainProcess(c *websocket.Conn) {
 			continue
 		}
 
+		if clientMsg.Status == msgTypeRecall { // 消息撤回
+			serveMsgStr = formatServeMsgStr(msgTypeRecall)
+		}
+
 		//log.Println("serveMsgStr", string(serveMsgStr))
-		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
+		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline || clientMsg.Status == msgTypeRecall {
 			notify(c, string(serveMsgStr))
 		}
 	}
@@ -189,9 +194,8 @@ func handleConnClients(c *websocket.Conn) {
 func notify(conn *websocket.Conn, msg string) {
 	_, roomIdInt := getRoomId()
 	for _, con := range rooms[roomIdInt] {
-		if con.RemoteAddr != conn.RemoteAddr().String() {
-			con.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-		}
+		// 发送给所有用户，包括消息的发送者
+		con.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	}
 }
 
@@ -246,9 +250,10 @@ func formatServeMsgStr(status int) []byte {
 		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
 		intUid, _ := strconv.Atoi(stringUid)
 
+		var savedMsg models.Message
 		if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data["content"],
@@ -256,19 +261,44 @@ func formatServeMsgStr(status int) []byte {
 				"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"room_id":    data["room_id"],
 				"content":    data["content"],
 			})
 		}
+		// 将消息ID添加到返回数据中
+		data["msg_id"] = savedMsg.ID
 
 	}
 
 	if status == msgTypeGetOnlineUser {
 		data["count"] = GetOnlineRoomUserCount(roomIdInt)
 		data["list"] = onLineUserList(roomIdInt)
+	}
+
+	if status == msgTypeRecall {
+		// 获取消息ID
+		msgIdStr := clientMsg.Data.(map[string]interface{})["msg_id"].(string)
+		msgId, err := strconv.ParseUint(msgIdStr, 10, 32)
+		if err != nil {
+			log.Printf("撤回消息请求解析错误: msgId=%s, error=%v", msgIdStr, err)
+			data["msg_id"] = msgIdStr
+			data["success"] = false
+		} else {
+			log.Printf("撤回消息请求: msgId=%s, user=%s, uid=%v", msgIdStr, data["username"], data["uid"])
+
+			// 调用RecallMessage函数处理撤回
+			stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+			intUid, _ := strconv.Atoi(stringUid)
+			success := models.RecallMessage(uint(msgId), intUid)
+			log.Printf("撤回消息结果: msgId=%d, success=%v", msgId, success)
+
+			// 添加撤回消息的相关数据
+			data["msg_id"] = msgId
+			data["success"] = success
+		}
 	}
 
 	jsonStrServeMsg := msg{

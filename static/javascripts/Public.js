@@ -106,20 +106,27 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
-						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
-							received_msg.data.avatar_id +
-							'.png" alt=""><b>' +
-							received_msg.data.username +
-							'</b><i>' +
-							time +
-							'</i><div class="aaa">' +
-							received_msg.data.content +
-							'</div></li>');
+				if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
+				{
+					chat_info.html(chat_info.html() +
+						'<li class="left" data-message-id="' + received_msg.data.message_id + '"><img src="/static/images/user/' +
+						received_msg.data.avatar_id +
+						'.png" alt=""><b>' +
+						received_msg.data.username +
+						'</b><i>' +
+						time +
+						'</i><div class="aaa">' +
+						received_msg.data.content +
+						'</div></li>');
+				} else if (received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+					// 为自己发送的消息添加撤回按钮
+					let messageElement = $('.chat_info li.right').last();
+					if (messageElement.length > 0) {
+						messageElement.attr('data-message-id', received_msg.data.message_id);
+						messageElement.find('i').after('<span class="withdraw-btn" onclick="withdrawMessage(' + received_msg.data.message_id + ')">(撤回)</span>');
 					}
-					break;
+				}
+				break;
 				case -1:
 					ws.close() // 主动close掉
 					isServeClose = 1
@@ -160,6 +167,19 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					if (!isPrivateChat())
 					{
 						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+					}
+					break;
+				case 6:
+					// 消息撤回
+					if (received_msg.data.success) {
+						let messageId = received_msg.data.message_id;
+						let messageElement = $('li[data-message-id="' + messageId + '"]');
+						if (messageElement.length > 0) {
+							messageElement.find('div').html('<span style="color: #999; font-style: italic;">消息已撤回</span>');
+							messageElement.find('.withdraw-btn').remove();
+						}
+					} else {
+						layer.msg('撤回失败，可能是消息已超过2分钟或您没有权限撤回');
 					}
 					break;
 				default:
@@ -539,6 +559,22 @@ function toLow() {
 	$('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').animate({
 		scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
 	}, 500);
+}
+
+function withdrawMessage(messageId) {
+	if (confirm('确定要撤回这条消息吗？')) {
+		let send_data = JSON.stringify({
+			"status": 6,
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": $('.room').attr('data-room_id'),
+				"message_id": messageId.toString()
+			}
+		});
+		ws.send(send_data);
+	}
 }
 
 

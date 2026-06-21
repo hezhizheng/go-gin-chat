@@ -70,6 +70,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5  // 私聊
+const msgTypeWithdraw = 6     // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -117,28 +118,32 @@ func mainProcess(c *websocket.Conn) {
 		}
 
 		if clientMsg.Status == msgTypePrivateChat {
-			// 处理私聊
-			serveMsgStr = formatServeMsgStr(msgTypePrivateChat)
-			toC := findToUserCoonClient()
-			if toC != nil {
-				toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
-			}
+		// 处理私聊
+		serveMsgStr = formatServeMsgStr(msgTypePrivateChat)
+		toC := findToUserCoonClient()
+		if toC != nil {
+			toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 		}
+	}
 
-		if clientMsg.Status == msgTypeSend { // 消息发送
-			serveMsgStr = formatServeMsgStr(msgTypeSend)
-		}
+	if clientMsg.Status == msgTypeSend { // 消息发送
+		serveMsgStr = formatServeMsgStr(msgTypeSend)
+	}
 
-		if clientMsg.Status == msgTypeGetOnlineUser {
-			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
-			c.WriteMessage(websocket.TextMessage, serveMsgStr)
-			continue
-		}
+	if clientMsg.Status == msgTypeWithdraw { // 消息撤回
+		serveMsgStr = formatServeMsgStr(msgTypeWithdraw)
+	}
+
+	if clientMsg.Status == msgTypeGetOnlineUser {
+		serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
+		c.WriteMessage(websocket.TextMessage, serveMsgStr)
+		continue
+	}
 
 		//log.Println("serveMsgStr", string(serveMsgStr))
-		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
-			notify(c, string(serveMsgStr))
-		}
+	if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline || clientMsg.Status == msgTypeWithdraw {
+		notify(c, string(serveMsgStr))
+	}
 	}
 }
 
@@ -246,9 +251,10 @@ func formatServeMsgStr(status int) []byte {
 		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
 		intUid, _ := strconv.Atoi(stringUid)
 
+		var savedMessage models.Message
 		if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMessage = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data["content"],
@@ -256,14 +262,29 @@ func formatServeMsgStr(status int) []byte {
 				"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMessage = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"room_id":    data["room_id"],
 				"content":    data["content"],
 			})
 		}
+		// 返回消息ID
+		data["message_id"] = savedMessage.ID
 
+	}
+
+	if status == msgTypeWithdraw {
+		// 处理消息撤回
+		messageIdStr := clientMsg.Data.(map[string]interface{})["message_id"].(string)
+		messageId, _ := strconv.ParseUint(messageIdStr, 10, 32)
+		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+		intUid, _ := strconv.Atoi(stringUid)
+		
+		// 尝试撤回消息
+		success := models.WithdrawMessage(uint(messageId), intUid)
+		data["message_id"] = messageId
+		data["success"] = success
 	}
 
 	if status == msgTypeGetOnlineUser {

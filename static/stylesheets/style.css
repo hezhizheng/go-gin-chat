@@ -391,4 +391,15 @@ ul{
 	color: #afa;
 }
 
+.room .chat_info .withdraw-btn{
+	font-size: 12px;
+	color: #999;
+	cursor: pointer;
+	margin-left: 10px;
+}
+
+.room .chat_info .withdraw-btn:hover{
+	color: #f00;
+}
+
 

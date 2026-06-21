@@ -1,22 +1,22 @@
 package models
 
 import (
-	"gorm.io/gorm"
+	"log"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
 	gorm.Model
-	ID        uint
-	UserId    int
-	ToUserId  int
-	RoomId    int
-	Content   string
-	ImageUrl  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	UserId     int
+	ToUserId   int
+	RoomId     int
+	Content    string
+	ImageUrl   string
+	IsRecalled int // 0: 正常, 1: 已撤回
 }
 
 func SaveContent(value interface{}) Message {
@@ -35,11 +35,15 @@ func SaveContent(value interface{}) Message {
 		m.ImageUrl = value.(map[string]interface{})["image_url"].(string)
 	}
 
-	ChatDB.Create(&m)
+	result := ChatDB.Create(&m)
+	if result.Error != nil {
+		log.Println("SaveContent error:", result.Error)
+	}
+	log.Println("SaveContent success, ID:", m.ID)
 	return m
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -52,7 +56,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
@@ -61,7 +65,39 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+// RecallMessage 撤回消息
+func RecallMessage(msgId uint, userId int) error {
+	var msg Message
+	result := ChatDB.First(&msg, msgId)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// 检查是否是消息发送者
+	if msg.UserId != userId {
+		return gorm.ErrRecordNotFound
+	}
+
+	// 检查是否在2分钟内
+	if time.Since(msg.CreatedAt) > 2*time.Minute {
+		return gorm.ErrInvalidData
+	}
+
+	// 更新消息状态为已撤回
+	msg.IsRecalled = 1
+	msg.Content = "消息已撤回"
+	result = ChatDB.Save(&msg)
+	return result.Error
+}
+
+// GetMessageById 根据ID获取消息
+func GetMessageById(msgId uint) (Message, error) {
+	var msg Message
+	result := ChatDB.First(&msg, msgId)
+	return msg, result.Error
+}
+
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -77,7 +113,7 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})

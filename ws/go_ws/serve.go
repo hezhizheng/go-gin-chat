@@ -33,16 +33,18 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid       string        `json:"uid"`
+	Username  string        `json:"username"`
+	AvatarId  string        `json:"avatar_id"`
+	ToUid     string        `json:"to_uid"`
+	Content   string        `json:"content"`
+	ImageUrl  string        `json:"image_url"`
+	RoomId    string        `json:"room_id"`
+	Count     int           `json:"count"`
+	List      []interface{} `json:"list"`
+	Time      int64         `json:"time"`
+	MsgId     uint          `json:"msg_id"`
+	IsRecalled bool         `json:"is_recalled"`
 }
 
 // client & serve 的消息体
@@ -89,6 +91,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeRecall = 6        // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -222,6 +225,7 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 		dataUsername := clientMsg.Data.Username
 		dataAvatarId := clientMsg.Data.AvatarId
 		dataRoomId := clientMsg.Data.RoomId
+		dataMsgId := clientMsg.Data.MsgId
 		clientMsgLock.Unlock()
 
 		//fmt.Println("来自客户端的消息", clientMsg, c.RemoteAddr())
@@ -237,10 +241,44 @@ func read(c *websocket.Conn, done chan<- struct{}) {
 				}
 			}
 
-			_, serveMsg := formatServeMsgStr(status, c)
-			sMsg <- serveMsg
+			if status == msgTypeRecall {
+				// 处理撤回消息
+				serveMsg := handleRecallMessage(status, c, dataUid, dataMsgId)
+				sMsg <- serveMsg
+			} else {
+				_, serveMsg := formatServeMsgStr(status, c)
+				sMsg <- serveMsg
+			}
 		}
 	}
+}
+
+func handleRecallMessage(status int, conn *websocket.Conn, uid string, msgId uint) msg {
+	clientMsgLock.Lock()
+	username := clientMsg.Data.Username
+	roomId := clientMsg.Data.RoomId
+	clientMsgLock.Unlock()
+
+	intUid, _ := strconv.Atoi(uid)
+	success, msg, _ := models.RecallMessage(int(msgId), intUid)
+
+	data := msgData{
+		Username:   username,
+		Uid:        uid,
+		RoomId:     roomId,
+		Time:       time.Now().UnixNano() / 1e6,
+		MsgId:      msgId,
+		IsRecalled: success,
+		Content:    msg,
+	}
+
+	jsonStrServeMsg := msg{
+		Status: status,
+		Data:   data,
+		Conn:   conn,
+	}
+
+	return jsonStrServeMsg
 }
 
 func write(done <-chan struct{}) {
@@ -275,6 +313,8 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeRecall:
+				notify(cl.Conn, string(serveMsgStr))
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -454,9 +494,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,14 +505,14 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
 				"room_id":    data.RoomId,
 			})
 		}
-
+		data.MsgId = savedMsg.ID
 	}
 
 	if status == msgTypeGetOnlineUser {

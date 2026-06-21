@@ -106,10 +106,10 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
+					// 普通聊天消息
+					if (received_msg.data.uid != userInfo.uid && !isPrivateChat()) {
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
@@ -118,7 +118,49 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							'</i><div class="aaa">' +
 							received_msg.data.content +
 							'</div></li>');
+					} else if (received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+						// 自己发送的消息，添加消息ID和时间戳到DOM
+						$('.main .chat_info li.right:last').attr('data-msg-id', received_msg.data.msg_id);
+						$('.main .chat_info li.right:last').attr('data-msg-time', received_msg.data.time);
 					}
+					break;
+				case 5:
+					// 私聊消息 - 在私聊窗口中显示
+					if (isPrivateChat()) {
+						let body = $('.chat_info');
+						let currentUid = $('.room').attr('data-uid');
+						let otherUid = getQueryVariable('uid');
+						
+						// 只显示与当前私聊对象相关的消息
+						if (received_msg.data.uid == otherUid) {
+							// 对方发来的消息
+							body.html(body.html() +
+								'<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
+								received_msg.data.avatar_id +
+								'.png" alt=""><b>' +
+								received_msg.data.username +
+								'</b><i>' +
+								time +
+								'</i><div class="aaa">' +
+								received_msg.data.content +
+								'</div></li>');
+						} else if (received_msg.data.uid == currentUid) {
+							// 自己发送的消息，添加消息ID和时间戳
+							$('.main .chat_info li.right:last').attr('data-msg-id', received_msg.data.msg_id);
+							$('.main .chat_info li.right:last').attr('data-msg-time', received_msg.data.time);
+						}
+					} else {
+						// 在群聊窗口中显示私聊通知
+						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+					}
+					break;
+				case 6:
+					// 消息撤回通知
+					recallMessageUI(received_msg.data.msg_id);
+					break;
+				case -2:
+					// 撤回失败提示
+					layer.msg(received_msg.data.content);
 					break;
 				case -1:
 					ws.close() // 主动close掉
@@ -130,8 +172,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 
 					$.each(received_msg.data.list,function (index, value) {
 
-						if ( received_msg.data.uid == value.uid )
-						{
+						if (received_msg.data.uid == value.uid) {
 							// 禁止点击
 							$('.ul-user-list').html($('.ul-user-list').html() +
 								'<li  style="pointer-events: none;" class="li-user-item" data-uid='+ value.uid +' data-username='+ value.username +' data-room_id='+ value.room_id +' data-avatar_id='+ value.avatar_id +'  ><img src="/static/images/user/' +
@@ -141,7 +182,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 								'</b>' +
 								'</li>'
 							)
-						}else{
+						} else {
 							$('.ul-user-list').html($('.ul-user-list').html() +
 								'<li  class="li-user-item" data-uid='+ value.uid +' data-username='+ value.username +' data-room_id='+ value.room_id +' data-avatar_id='+ value.avatar_id +'  ><img src="/static/images/user/' +
 								value.avatar_id +
@@ -154,13 +195,6 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 
 					})
 					//console.log("在线用户",received_msg);
-					break;
-				case 5:
-					// 私聊通知
-					if (!isPrivateChat())
-					{
-						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
-					}
 					break;
 				default:
 			}
@@ -497,7 +531,10 @@ $(document).ready(function(){
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let timestamp = new Date().getTime();
+			// 临时msg-id用于本地标识，等待服务器返回真实msg-id
+			let tempMsgId = 'temp_' + timestamp;
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-msg-id="' + tempMsgId + '" data-msg-time="' + timestamp + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
 		}
 	}
 	$('.text input').keypress(function(e) {
@@ -533,6 +570,110 @@ function getQueryVariable(variable)
 function isPrivateChat()
 {
 	return window.location.href.search('private-chat') > 0
+}
+
+// 消息撤回相关功能
+let selectedMsgId = null;
+let selectedMsgElement = null;
+
+// 显示撤回菜单
+function showRecallMenu(e, msgId, msgElement) {
+	e.preventDefault();
+	selectedMsgId = msgId;
+	selectedMsgElement = msgElement;
+
+	// 检查是否在2分钟内
+	let msgTime = $(msgElement).attr('data-msg-time');
+	if (!msgTime) {
+		return;
+	}
+
+	let msgTimestamp;
+	// 判断是时间戳还是日期字符串
+	if (/^\d+$/.test(msgTime)) {
+		// 纯数字，是时间戳
+		msgTimestamp = parseInt(msgTime);
+	} else {
+		// 日期字符串，如 "2024-01-01 12:00:00"
+		msgTimestamp = new Date(msgTime).getTime();
+	}
+
+	if (isNaN(msgTimestamp)) {
+		return;
+	}
+
+	let now = new Date().getTime();
+	let diff = now - msgTimestamp;
+	let twoMinutes = 2 * 60 * 1000;
+
+	if (diff > twoMinutes) {
+		return; // 超过2分钟不显示撤回菜单
+	}
+
+	// 移除已存在的菜单
+	$('#recall-context-menu').remove();
+
+	// 创建右键菜单
+	let menu = $('<div id="recall-context-menu" style="position:fixed;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:4px;padding:5px 0;box-shadow:0 2px 10px rgba(0,0,0,0.1);">' +
+		'<div class="recall-menu-item" style="padding:8px 15px;cursor:pointer;font-size:14px;color:#333;white-space:nowrap;">撤回消息</div>' +
+		'</div>');
+
+	$('body').append(menu);
+
+	// 设置菜单位置
+	menu.css({
+		left: e.clientX + 'px',
+		top: e.clientY + 'px'
+	});
+
+	// 点击撤回
+	$('.recall-menu-item').click(function() {
+		recallMessage(selectedMsgId);
+		$('#recall-context-menu').remove();
+	});
+
+	// 点击其他地方关闭菜单
+	$(document).one('click', function() {
+		$('#recall-context-menu').remove();
+	});
+}
+
+// 发送撤回请求
+function recallMessage(msgId) {
+	if (!msgId) return;
+
+	let roomId = $('.room').attr('data-room_id');
+	let toUid = "0";
+	
+	// 如果是私聊，获取对方UID
+	if (isPrivateChat()) {
+		toUid = getQueryVariable('uid');
+	}
+
+	let send_data = JSON.stringify({
+		"status": 6,
+		"data": {
+			"uid": $('.room').attr('data-uid').toString(),
+			"room_id": roomId,
+			"msg_id": msgId.toString(),
+			"to_uid": toUid
+		}
+	});
+
+	ws.send(send_data);
+}
+
+// 更新UI显示消息已撤回
+function recallMessageUI(msgId) {
+	if (!msgId) return;
+
+	let msgElement = $('.chat_info li[data-msg-id="' + msgId + '"]');
+	if (msgElement.length > 0) {
+		let isSelf = msgElement.hasClass('right');
+		let username = msgElement.find('b').text();
+		msgElement.find('div').html('<span style="color:#999;font-style:italic;">' + (isSelf ? '你' : username) + '撤回了一条消息</span>');
+		msgElement.find('div').css('background', '#f0f0f0');
+	}
 }
 
 function toLow() {

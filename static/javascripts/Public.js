@@ -106,10 +106,11 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
+					console.log("Received message, status=3:", received_msg);
 					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
 					{
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
@@ -118,6 +119,61 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							'</i><div class="aaa">' +
 							received_msg.data.content +
 							'</div></li>');
+					} else if (received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+						console.log("Processing own message, msg_id from server:", received_msg.data.msg_id);
+						let lastLi = chat_info.find('li.right').last();
+						console.log("Found last right li element:", lastLi.length > 0);
+						if (lastLi.length > 0) {
+							lastLi.attr('data-msg-id', received_msg.data.msg_id);
+							
+							let timeElem = lastLi.find('i');
+							console.log("Found time element (i tag):", timeElem.length > 0);
+							
+							let revokeBtn = lastLi.find('.revoke-btn');
+							if (revokeBtn.length > 0) {
+								console.log("Revoke button already exists");
+							} else {
+								if (timeElem.length > 0) {
+									timeElem.after('<button class="revoke-btn" style="font-size:12px;cursor:pointer;">撤回</button>');
+									console.log("Revoke button added successfully after i tag");
+								} else {
+									let bElem = lastLi.find('b');
+									console.log("Found b element:", bElem.length > 0);
+									if (bElem.length > 0) {
+										bElem.after('<button class="revoke-btn" style="font-size:12px;cursor:pointer;">撤回</button>');
+										console.log("Revoke button added successfully after b tag");
+									} else {
+										let imgElem = lastLi.find('img');
+										console.log("Found img element:", imgElem.length > 0);
+										if (imgElem.length > 0) {
+											imgElem.after('<button class="revoke-btn" style="font-size:12px;cursor:pointer;">撤回</button>');
+											console.log("Revoke button added successfully after img tag");
+										} else {
+											console.error("No suitable element found to add revoke button");
+										}
+									}
+								}
+							}
+							console.log("Set msg_id for own message:", received_msg.data.msg_id);
+						} else {
+							console.error("No right li element found");
+						}
+					}
+					break;
+				case 6:
+					console.log("Received revoke message response:", received_msg);
+					let msgId = received_msg.data.msg_id;
+					let success = received_msg.data.success;
+					console.log("msgId:", msgId, "success:", success);
+					if (success) {
+						let msgLi = chat_info.find('li[data-msg-id="' + msgId + '"]');
+						console.log("Found message element:", msgLi.length > 0);
+						if (msgLi.length > 0) {
+							msgLi.find('.revoke-btn').remove();
+							msgLi.find('div').html('<span style="color:#999;font-style:italic;">[消息已撤回]</span>');
+						}
+					} else {
+						layer.msg('撤回失败，可能已超过2分钟或消息已被撤回');
 					}
 					break;
 				case -1:
@@ -289,7 +345,21 @@ $(document).ready(function(){
 		ws.send(send_data);
 	})
 
-	// 发送图片
+	// 撤回按钮点击事件
+	$(document).on('click', '.revoke-btn', function(e) {
+		e.stopPropagation();
+		let msgLi = $(this).closest('li');
+		let msgId = msgLi.attr('data-msg-id');
+		console.log("Revoke button clicked, msg_id:", msgId);
+		if (msgId) {
+			revokeMessage(msgId);
+		} else {
+			console.error("No msg_id found on message element");
+			layer.msg('消息ID获取失败，请刷新页面重试');
+		}
+	});
+
+		// 发送图片
 
 	$('.imgFileBtn').change(function(event) {
 
@@ -492,14 +562,62 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
+	let sentMessages = [];
+	
+	function sends_message (userName, userPortrait, message, msgId = null) {
 		if(message!='') {
-
 			let myDate = new Date();
-			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString();
+			let revokeBtnHtml = '';
+			if (msgId) {
+				revokeBtnHtml = '<button class="revoke-btn" style="font-size:12px;cursor:pointer;">撤回</button>';
+			}
+			let msgHtml = '<li class="right" data-msg-id="' + (msgId || '') + '" data-created-at="' + myDate.toISOString() + '">' +
+				'<img src="/static/images/user/' + userPortrait + '.png" alt="">' +
+				'<b>' + userName + '</b>' +
+				'<i>' + time + '</i>' +
+				revokeBtnHtml +
+				'<div class="">' + message + '</div>' +
+				'</li>';
+			$('.main .chat_info').html($('.main .chat_info').html() + msgHtml);
+			
+			if (msgId) {
+				sentMessages.push({
+					msgId: msgId,
+					createdAt: myDate
+				});
+			}
 		}
 	}
+	
+	function revokeMessage(msgId) {
+		console.log("Sending revoke message request for msg_id:", msgId);
+		let send_data = JSON.stringify({
+			"status": 6,
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": $('.room').attr('data-room_id'),
+				"msg_id": msgId
+			}
+		});
+		console.log("Revoke request data:", send_data);
+		ws.send(send_data);
+	}
+	
+	function hideExpiredRevokeButtons() {
+		let now = new Date();
+		$('.main .chat_info li.right[data-created-at]').each(function() {
+			let createdAt = new Date($(this).attr('data-created-at'));
+			let diff = (now - createdAt) / 1000;
+			if (diff > 120) {
+				$(this).find('.revoke-btn').remove();
+			}
+		});
+	}
+	
+	setInterval(hideExpiredRevokeButtons, 1000);
 	$('.text input').keypress(function(e) {
 		if (e.which == 13){
 			$('#subxx').click();

@@ -1,10 +1,11 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Message struct {
@@ -15,6 +16,7 @@ type Message struct {
 	RoomId    int
 	Content   string
 	ImageUrl  string
+	IsRevoked bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -39,7 +41,7 @@ func SaveContent(value interface{}) Message {
 	return m
 }
 
-func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
+func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -52,7 +54,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
@@ -61,7 +63,7 @@ func GetLimitMsg(roomId string,offset int) []map[string]interface{} {
 	return results
 }
 
-func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
+func GetLimitPrivateMsg(uid, toUId string, offset int) []map[string]interface{} {
 
 	var results []map[string]interface{}
 	ChatDB.Model(&Message{}).
@@ -77,11 +79,28 @@ func GetLimitPrivateMsg(uid, toUId string,offset int) []map[string]interface{} {
 		Limit(100).
 		Scan(&results)
 
-	if offset == 0{
+	if offset == 0 {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i]["id"].(uint32) < results[j]["id"].(uint32)
 		})
 	}
 
 	return results
+}
+
+func RevokeMessage(msgId uint, userId int) (Message, bool, error) {
+	var m Message
+	err := ChatDB.Where("id = ? AND user_id = ?", msgId, userId).First(&m).Error
+	if err != nil {
+		return m, false, err
+	}
+	if time.Since(m.CreatedAt) > 2*time.Minute {
+		return m, false, nil
+	}
+	if m.IsRevoked {
+		return m, false, nil
+	}
+	m.IsRevoked = true
+	ChatDB.Save(&m)
+	return m, true, nil
 }

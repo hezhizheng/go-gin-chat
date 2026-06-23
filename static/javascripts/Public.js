@@ -106,20 +106,25 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
-						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
-							received_msg.data.avatar_id +
-							'.png" alt=""><b>' +
-							received_msg.data.username +
-							'</b><i>' +
-							time +
-							'</i><div class="aaa">' +
-							received_msg.data.content +
-							'</div></li>');
-					}
-					break;
+			if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
+			{
+				chat_info.html(chat_info.html() +
+					'<li class="left" data-msg-id="' + received_msg.data.message_id + '"><img src="/static/images/user/' +
+					received_msg.data.avatar_id +
+					'.png" alt=""><b>' +
+					received_msg.data.username +
+					'</b><i>' +
+					time +
+					'</i><div class="msg-content">' +
+					received_msg.data.content +
+					'</div></li>');
+			} else if (received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+				// 更新自己发送消息的ID（从临时ID更新为真实ID）
+				if (received_msg.data.message_id) {
+					updateSentMessageId(received_msg.data.message_id, received_msg.data.created_at);
+				}
+			}
+			break;
 				case -1:
 					ws.close() // 主动close掉
 					isServeClose = 1
@@ -156,13 +161,22 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					//console.log("在线用户",received_msg);
 					break;
 				case 5:
-					// 私聊通知
-					if (!isPrivateChat())
-					{
-						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
-					}
-					break;
-				default:
+				// 私聊通知
+				if (!isPrivateChat())
+				{
+					layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+				}
+				break;
+			case 6:
+				// 撤回消息通知
+				let recalledMsgId = received_msg.data.content;
+				let recalledLi = $('li[data-msg-id="' + recalledMsgId + '"]');
+				if (recalledLi.length > 0) {
+					recalledLi.find('.msg-content').addClass('recalled').text('消息已撤回');
+					recalledLi.find('.recall-btn').remove();
+				}
+				break;
+			default:
 			}
 			// console.log("数据已接收...", received_msg);
 
@@ -497,7 +511,17 @@ $(document).ready(function(){
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			// 临时消息ID，用于前端显示，等服务器返回真实ID后更新
+			let tempId = 'temp_' + Date.now();
+			let timeIso = new Date().toISOString();
+			// 临时消息使用特殊的撤回处理，直接删除DOM元素
+			let recallHandler = 'recallTempMessage(this, \'' + tempId + '\')';
+			$('.main .chat_info').html($('.main .chat_info').html() + 
+				'<li class="right" data-msg-id="' + tempId + '" data-created-at="' + timeIso + '">' +
+				'<img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i>' +
+				'<div class="msg-content">' + message + '</div>' +
+				'<span class="recall-btn" onclick="' + recallHandler + '">撤回</span>' +
+				'</li>');
 		}
 	}
 	$('.text input').keypress(function(e) {
@@ -533,6 +557,18 @@ function getQueryVariable(variable)
 function isPrivateChat()
 {
 	return window.location.href.search('private-chat') > 0
+}
+
+// 更新已发送消息的ID（从临时ID更新为服务器返回的真实ID）
+function updateSentMessageId(realId, createdAt) {
+	// 找到最新的临时消息并更新
+	let tempMsg = $('.right[data-msg-id^="temp_"]').last();
+	if (tempMsg.length > 0) {
+		tempMsg.attr('data-msg-id', realId);
+		tempMsg.attr('data-created-at', createdAt);
+		// 更新撤回按钮的onclick事件 - 使用转义的引号
+		tempMsg.find('.recall-btn').attr('onclick', "recallMessage(" + realId + ", '" + createdAt + "')");
+	}
 }
 
 function toLow() {

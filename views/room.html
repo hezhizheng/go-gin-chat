@@ -65,30 +65,36 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}"{{if eq .is_recalled 1}} data-recalled="1"{{end}}>
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
-                            {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
+                            {{ if eq .is_recalled 1 }}
+                                <div class="aaa recalled"><span style="color: #999; font-style: italic;">消息已被撤回</span></div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div class="aaa">{{ .content }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                    <div class="aaa"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
                                 {{end}}
+                            {{end}}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-msg-id="{{ .id }}"{{if eq .is_recalled 1}} data-recalled="1"{{end}}>
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
-                            {{ if eq .image_url $nullSrl }}
-
-                                <div>{{ .content }}</div>
-                            {{else}}
-                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            {{ if eq .is_recalled 1 }}
+                                <div class="aaa recalled"><span style="color: #999; font-style: italic;">消息已被撤回</span></div>
+                            {{ else }}
+                                {{ if eq .image_url $nullSrl }}
+                                    <div class="aaa">{{ .content }}</div>
+                                {{else}}
+                                    <div class="aaa"><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                {{end}}
                             {{end}}
                         </li>
 
@@ -139,10 +145,10 @@
         // WebSocketConnect
 
         let userInfo = {
-            uid : {{ .user_info.uid }},
-            username : {{ .user_info.username }},
-            room_id : {{ .room_id }},
-            avatar_id : {{ .user_info.avatar_id }},
+            uid : "{{ .user_info.uid }}",
+            username : "{{ .user_info.username }}",
+            room_id : "{{ .room_id }}",
+            avatar_id : "{{ .user_info.avatar_id }}"
         }
         WebSocketConnect(userInfo)
 
@@ -185,7 +191,7 @@
                     if (received_msg.status == 5 && received_msg.data.uid == uid)
                     {
                         body.find('.main .chat_info').html(body.find('.main .chat_info').html() +
-                            '<li class="left"><img src="/static/images/user/' +
+                            '<li class="left" data-msg-id="' + received_msg.data.msg_id + '"><img src="/static/images/user/' +
                             received_msg.data.avatar_id +
                             '.png" alt=""><b>' +
                             received_msg.data.username +
@@ -196,6 +202,16 @@
                             '</div></li>');
                     }else if (received_msg.status == 5){
                         layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+                    } else if (received_msg.status == 6) {
+                        // 撤回消息通知
+                        if (!received_msg.data.recall_msg) {
+                            let msgId = received_msg.data.msg_id;
+                            let msgElement = body.find('li[data-msg-id="' + msgId + '"]');
+                            if (msgElement.length > 0) {
+                                msgElement.find('.aaa').html('<span style="color: #999; font-style: italic;">消息已被撤回</span>');
+                                msgElement.find('.aaa').addClass('recalled');
+                            }
+                        }
                     }
                 }
 

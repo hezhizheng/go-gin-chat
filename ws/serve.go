@@ -70,6 +70,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5  // 私聊
+const msgTypeRecall = 6       // 消息撤回
 
 const roomCount = 6 // 房间总数
 
@@ -135,8 +136,12 @@ func mainProcess(c *websocket.Conn) {
 			continue
 		}
 
+		if clientMsg.Status == msgTypeRecall {
+			serveMsgStr = formatServeMsgStr(msgTypeRecall)
+		}
+
 		//log.Println("serveMsgStr", string(serveMsgStr))
-		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline {
+		if clientMsg.Status == msgTypeSend || clientMsg.Status == msgTypeOnline || clientMsg.Status == msgTypeRecall {
 			notify(c, string(serveMsgStr))
 		}
 	}
@@ -189,9 +194,8 @@ func handleConnClients(c *websocket.Conn) {
 func notify(conn *websocket.Conn, msg string) {
 	_, roomIdInt := getRoomId()
 	for _, con := range rooms[roomIdInt] {
-		if con.RemoteAddr != conn.RemoteAddr().String() {
-			con.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-		}
+		// 对于消息撤回，通知所有客户端，包括发送者
+		con.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	}
 }
 
@@ -246,9 +250,10 @@ func formatServeMsgStr(status int) []byte {
 		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
 		intUid, _ := strconv.Atoi(stringUid)
 
+		var savedMessage models.Message
 		if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMessage = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data["content"],
@@ -256,7 +261,7 @@ func formatServeMsgStr(status int) []byte {
 				"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMessage = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"room_id":    data["room_id"],
@@ -264,11 +269,46 @@ func formatServeMsgStr(status int) []byte {
 			})
 		}
 
+		// 将消息ID返回给前端
+		data["message_id"] = savedMessage.ID
+
 	}
 
 	if status == msgTypeGetOnlineUser {
 		data["count"] = GetOnlineRoomUserCount(roomIdInt)
 		data["list"] = onLineUserList(roomIdInt)
+	}
+
+	if status == msgTypeRecall {
+		// 处理消息撤回
+		messageId := clientMsg.Data.(map[string]interface{})["message_id"].(string)
+		messageIdInt, _ := strconv.Atoi(messageId)
+		
+		// 检查消息是否存在且是否在2分钟内
+		var message models.Message
+		result := models.ChatDB.First(&message, messageIdInt)
+		if result.Error == nil {
+			// 检查消息是否是当前用户发送的
+			stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+			intUid, _ := strconv.Atoi(stringUid)
+			
+			if message.UserId == intUid {
+				// 检查消息是否在2分钟内
+				if time.Since(message.CreatedAt) <= 2*time.Minute {
+					data["message_id"] = messageId
+					data["recall_time"] = time.Now().UnixNano() / 1e6
+				} else {
+					// 消息超过2分钟，不允许撤回
+					data["error"] = "消息超过2分钟，无法撤回"
+				}
+			} else {
+				// 不是消息发送者，不允许撤回
+				data["error"] = "只能撤回自己的消息"
+			}
+		} else {
+			// 消息不存在
+			data["error"] = "消息不存在"
+		}
 	}
 
 	jsonStrServeMsg := msg{

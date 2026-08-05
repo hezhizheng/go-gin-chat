@@ -108,8 +108,9 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 				case 3:
 					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
 					{
+						let msgIdAttr = received_msg.data.msg_id ? ' data-msg-id="' + received_msg.data.msg_id + '"' : '';
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="left"' + msgIdAttr + '><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
@@ -119,6 +120,16 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							received_msg.data.content +
 							'</div></li>');
 					}
+					break;
+				case 6:
+					// 处理消息撤回
+					$('li[data-msg-id="' + received_msg.data.msg_id + '"]').html('<li class="systeminfo"> <span>' +
+						"【" +
+						received_msg.data.username +
+						"】" +
+						time +
+						" 撤回了一条消息" +
+						'</span></li>');
 					break;
 				case -1:
 					ws.close() // 主动close掉
@@ -163,13 +174,13 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					}
 					break;
 				default:
-			}
+				}
 			// console.log("数据已接收...", received_msg);
 
-            if ( !(received_msg.data === "heartbeat ok") ){
-                // 滚动条滚到最下面
-                toLow();
-            }
+			if ( !(received_msg.data === "heartbeat ok") ){
+				// 滚动条滚到最下面
+				toLow();
+			}
 
 		};
 
@@ -492,14 +503,15 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
-		if(message!='') {
+	function sends_message (userName, userPortrait, message, msgId) {
+	if(message!='') {
 
-			let myDate = new Date();
-			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
-		}
+		let myDate = new Date();
+		let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
+		let msgIdAttr = msgId ? ' data-msg-id="' + msgId + '"' : '';
+		$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"' + msgIdAttr + '><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div><div class="msg-actions"><a href="javascript:;" class="msg-delete">撤回</a></div></li>');
 	}
+}
 	$('.text input').keypress(function(e) {
 		if (e.which == 13){
 			$('#subxx').click();
@@ -540,5 +552,22 @@ function toLow() {
 		scrollTop: $('.scrollbar-macosx.scroll-content.scroll-scrolly_visible').prop('scrollHeight')
 	}, 500);
 }
+
+// 处理消息撤回
+$(document).on('click', '.msg-delete', function() {
+	let msgId = $(this).closest('li').data('msg-id');
+	if (msgId) {
+		let send_data = JSON.stringify({
+			"status": 6,
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"room_id": $('.room').attr('data-room_id'),
+				"msg_id": msgId.toString(),
+			}
+		});
+		ws.send(send_data);
+	}
+});
 
 

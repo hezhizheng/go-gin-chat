@@ -391,4 +391,20 @@ ul{
 	color: #afa;
 }
 
+.room .chat_info .msg-actions{
+	margin-top: 5px;
+	font-size: 12px;
+	color: #999;
+}
+
+.room .chat_info .msg-actions .msg-delete{
+	color: #999;
+	text-decoration: none;
+}
+
+.room .chat_info .msg-actions .msg-delete:hover{
+	color: #f00;
+	text-decoration: underline;
+}
+
 

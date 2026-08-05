@@ -70,6 +70,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5  // 私聊
+const msgTypeDeleteMsg = 6     // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -132,6 +133,34 @@ func mainProcess(c *websocket.Conn) {
 		if clientMsg.Status == msgTypeGetOnlineUser {
 			serveMsgStr = formatServeMsgStr(msgTypeGetOnlineUser)
 			c.WriteMessage(websocket.TextMessage, serveMsgStr)
+			continue
+		}
+
+		if clientMsg.Status == msgTypeDeleteMsg {
+			// 处理消息撤回
+			msgIdStr := clientMsg.Data.(map[string]interface{})["msg_id"].(string)
+			msgId, _ := strconv.ParseUint(msgIdStr, 10, 32)
+			
+			stringUid := clientMsg.Data.(map[string]interface{})["uid"].(string)
+			intUid, _ := strconv.Atoi(stringUid)
+			
+			success := models.DeleteMessage(uint(msgId), intUid)
+			
+			if success {
+				data := map[string]interface{}{
+					"msg_id": msgId,
+					"username": clientMsg.Data.(map[string]interface{})["username"].(string),
+					"time": time.Now().UnixNano() / 1e6,
+				}
+				
+				jsonStrServeMsg := msg{
+					Status: msgTypeDeleteMsg,
+					Data:   data,
+				}
+				serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
+				
+				notify(c, string(serveMsgStr))
+			}
 			continue
 		}
 
@@ -236,35 +265,39 @@ func formatServeMsgStr(status int) []byte {
 	}
 
 	if status == msgTypeSend || status == msgTypePrivateChat {
-		data["avatar_id"] = clientMsg.Data.(map[string]interface{})["avatar_id"].(string)
-		data["content"] = clientMsg.Data.(map[string]interface{})["content"].(string)
+			data["avatar_id"] = clientMsg.Data.(map[string]interface{})["avatar_id"].(string)
+			data["content"] = clientMsg.Data.(map[string]interface{})["content"].(string)
 
-		toUidStr := clientMsg.Data.(map[string]interface{})["to_uid"].(string)
-		toUid, _ := strconv.Atoi(toUidStr)
+			toUidStr := clientMsg.Data.(map[string]interface{})["to_uid"].(string)
+			toUid, _ := strconv.Atoi(toUidStr)
 
-		// 保存消息
-		stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
-		intUid, _ := strconv.Atoi(stringUid)
+			// 保存消息
+			stringUid := strconv.FormatFloat(data["uid"].(float64), 'f', -1, 64)
+			intUid, _ := strconv.Atoi(stringUid)
 
-		if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
-			// 存在图片
-			models.SaveContent(map[string]interface{}{
-				"user_id":    intUid,
-				"to_user_id": toUid,
-				"content":    data["content"],
-				"room_id":    data["room_id"],
-				"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
-			})
-		} else {
-			models.SaveContent(map[string]interface{}{
-				"user_id":    intUid,
-				"to_user_id": toUid,
-				"room_id":    data["room_id"],
-				"content":    data["content"],
-			})
+			var savedMsg models.Message
+			if _, ok := clientMsg.Data.(map[string]interface{})["image_url"]; ok {
+				// 存在图片
+				savedMsg = models.SaveContent(map[string]interface{}{
+					"user_id":    intUid,
+					"to_user_id": toUid,
+					"content":    data["content"],
+					"room_id":    data["room_id"],
+					"image_url":  clientMsg.Data.(map[string]interface{})["image_url"].(string),
+				})
+			} else {
+				savedMsg = models.SaveContent(map[string]interface{}{
+					"user_id":    intUid,
+					"to_user_id": toUid,
+					"room_id":    data["room_id"],
+					"content":    data["content"],
+				})
+			}
+
+			// 添加消息ID
+			data["msg_id"] = savedMsg.ID
+
 		}
-
-	}
 
 	if status == msgTypeGetOnlineUser {
 		data["count"] = GetOnlineRoomUserCount(roomIdInt)

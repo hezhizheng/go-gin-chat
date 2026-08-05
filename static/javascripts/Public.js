@@ -2,7 +2,7 @@
 let ws_protocol = document.location.protocol == "https:" ? "wss" : "ws"
 
 const websocketHeartbeatJsOptions = {
-	url: ws_protocol + "://"+ window.location.host +"/ws",
+	url: ws_protocol + "://" + window.location.host + "/ws",
 	pingTimeout: 15000,
 	pongTimeout: 10000,
 	reconnectTimeout: 2000,
@@ -20,13 +20,12 @@ function _time(time = +new Date()) {
 	//return date.toJSON().substr(0, 19).replace('T', ' ').replace(/-/g, '/');
 }
 
-function WebSocketConnect(userInfo,toUserInfo = null) {
+function WebSocketConnect(userInfo, toUserInfo = null) {
 	if ("WebSocket" in window) {
 		//console.log("您的浏览器支持 WebSocket!");
 
-		if ( userInfo.uid <= 0 )
-		{
-			alert('参数错误，请刷新页面重试');return false;
+		if (userInfo.uid <= 0) {
+			alert('参数错误，请刷新页面重试'); return false;
 		}
 
 		// 打开一个 web socket
@@ -83,8 +82,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 			// let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
 			let time = _time(received_msg.data.time)
 
-			switch(received_msg.status)
-			{
+			switch (received_msg.status) {
 				case 1:
 					chat_info.html(chat_info.html() +
 						'<li class="systeminfo"> <span>' +
@@ -106,8 +104,7 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
+					if (received_msg.data.uid != userInfo.uid && !isPrivateChat()) {
 						chat_info.html(chat_info.html() +
 							'<li class="left"><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
@@ -126,24 +123,23 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					console.log("client 连接已关闭...");
 					break;
 				case 4:
-					$('.popover-title').html('在线用户 '+ received_msg.data.count +' 人')
+					$('.popover-title').html('在线用户 ' + received_msg.data.count + ' 人')
 
-					$.each(received_msg.data.list,function (index, value) {
+					$.each(received_msg.data.list, function (index, value) {
 
-						if ( received_msg.data.uid == value.uid )
-						{
+						if (received_msg.data.uid == value.uid) {
 							// 禁止点击
 							$('.ul-user-list').html($('.ul-user-list').html() +
-								'<li  style="pointer-events: none;" class="li-user-item" data-uid='+ value.uid +' data-username='+ value.username +' data-room_id='+ value.room_id +' data-avatar_id='+ value.avatar_id +'  ><img src="/static/images/user/' +
+								'<li  style="pointer-events: none;" class="li-user-item" data-uid=' + value.uid + ' data-username=' + value.username + ' data-room_id=' + value.room_id + ' data-avatar_id=' + value.avatar_id + '  ><img src="/static/images/user/' +
 								value.avatar_id +
 								'.png" alt=""><b>' + " " +
 								value.username +
 								'</b>' +
 								'</li>'
 							)
-						}else{
+						} else {
 							$('.ul-user-list').html($('.ul-user-list').html() +
-								'<li  class="li-user-item" data-uid='+ value.uid +' data-username='+ value.username +' data-room_id='+ value.room_id +' data-avatar_id='+ value.avatar_id +'  ><img src="/static/images/user/' +
+								'<li  class="li-user-item" data-uid=' + value.uid + ' data-username=' + value.username + ' data-room_id=' + value.room_id + ' data-avatar_id=' + value.avatar_id + '  ><img src="/static/images/user/' +
 								value.avatar_id +
 								'.png" alt=""><b>' + " " +
 								value.username +
@@ -157,70 +153,83 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					break;
 				case 5:
 					// 私聊通知
-					if (!isPrivateChat())
-					{
-						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+					if (!isPrivateChat()) {
+						layer.msg(received_msg.data.username + '：' + received_msg.data.content);
+					}
+					break;
+				case 6:
+					// 消息撤回
+					var messageId = received_msg.data.message_id;
+					var recallUser = received_msg.data.username;
+					console.log('收到撤回消息:', received_msg);
+					var $message = $('li[data-message-id="' + messageId + '"]');
+					console.log('找到消息元素:', $message.length);
+					if ($message.length > 0) {
+						$message.replaceWith('<li class="systeminfo"><span>【' + recallUser + '】撤回了一条消息</span></li>');
+						console.log('消息已撤回');
+					} else {
+						console.log('未找到要撤回的消息');
 					}
 					break;
 				default:
 			}
 			// console.log("数据已接收...", received_msg);
 
-            if ( !(received_msg.data === "heartbeat ok") ){
-                // 滚动条滚到最下面
-                toLow();
-            }
+			if (!(received_msg.data === "heartbeat ok")) {
+				// 滚动条滚到最下面
+				toLow();
+			}
 
 		};
 
 		ws.onclose = function (evt) {
 			// 关闭 websocket
-			if ( isServeClose === 1 ){
+			if (isServeClose === 1) {
 				chat_info.html(chat_info.html() +
 					'<li class="systeminfo"> <span>' +
 					"❌ 与服务器连接断开，请检查是否在浏览器中打开了多个聊天界面" +
 					'</span></li>');
-			}else{
+			} else {
 				chat_info.html(chat_info.html() +
 					'<li class="systeminfo"> <span>' +
 					"❌ 与服务器连接断开，正在尝试重新连接，请稍后..." +
 					'</span></li>');
 			}
 			// let c = ws.close() // 主动close掉
-			console.log("serve 连接已关闭... " + _time(),evt);
+			console.log("serve 连接已关闭... " + _time(), evt);
 			// console.log(c);
 			toLow();
 		};
-		
+
 		ws.onerror = function (evt) {
 			// ws.close()
-			console.log("触发 onerror",evt)
+			console.log("触发 onerror", evt)
 		}
 
 		ws.onreconnect = (e) => {
 			console.log('reconnecting...');
 		}
-		
+
 	} else {
 		// 浏览器不支持 WebSocket
 		alert("您的浏览器不支持 WebSocket!");
 	}
 }
 
-$(document).ready(function(){
-// ------------------------选择聊天室页面-----------------------------------------------
+$(document).ready(function () {
+	// ------------------------选择聊天室页面-----------------------------------------------
 
 	// 在页面即将卸载之前关闭WebSocket连接
-	window.addEventListener("beforeunload", function() {
+	window.addEventListener("beforeunload", function () {
 		console.log("beforeunload close");
 		ws.close();
 	});
 	// 用户信息提交
 
-	$('#userinfo_sub').click(function(event) {
+	$('#userinfo_sub').click(function (event) {
 		var userName = $('.rooms .user_name input').val(); // 用户昵称
 		var userPortrait = $('.rooms .user_portrait img').attr('portrait_id'); // 用户头像id
-		if(userName=='') { // 如果不填用户昵称，就是以前的昵称
+		if (userName == '') { // 如果不填用户昵称，就是以前的昵称
 			userName = $('.rooms .user_name input').attr('placeholder');
 		}
 
@@ -238,7 +247,7 @@ $(document).ready(function(){
 	// 设置主题
 
 
-	$('.theme img').click(function(event) {
+	$('.theme img').click(function (event) {
 		var theme_id = $(this).attr('theme_id');
 		$('.clapboard').click(); // 关掉用户模糊背景
 
@@ -272,10 +281,10 @@ $(document).ready(function(){
 
 
 
-// --------------------聊天室内页面----------------------------------------------------
+	// --------------------聊天室内页面----------------------------------------------------
 
 	// 获取在线用户列表
-	$(document).on('click', '.a-user-list', function(e) {
+	$(document).on('click', '.a-user-list', function (e) {
 		$('.ul-user-list').html('')
 		let send_data = JSON.stringify({
 			"status": 4,
@@ -291,7 +300,7 @@ $(document).ready(function(){
 
 	// 发送图片
 
-	$('.imgFileBtn').change(function(event) {
+	$('.imgFileBtn').change(function (event) {
 
 		var formData = new FormData();
 		formData.append('file', $(this)[0].files[0]);
@@ -306,7 +315,7 @@ $(document).ready(function(){
 				var index = layer.load(1, { // 1 是加载动画的样式，layer 提供了多种样式
 					shade: [0.5, '#000'], // 遮罩层颜色和透明度
 					time: 25000, // 最大显示时间（毫秒），超过此时间自动关闭
-					success: function(layero, index) {
+					success: function (layero, index) {
 						// 加载动画加载完成时的回调
 						console.log('加载动画已显示');
 					}
@@ -319,10 +328,10 @@ $(document).ready(function(){
 			data: formData,
 			processData: false,
 			contentType: false
-		}).done(function(res) {
+		}).done(function (res) {
 			console.log(res)
 
-			var str = '<img src="' + res.data.url +'" />'
+			var str = '<img src="' + res.data.url + '" />'
 
 			let to_uid = "0"
 			let status = 3
@@ -343,11 +352,11 @@ $(document).ready(function(){
 					"room_id": $('.room').attr('data-room_id'),
 					"image_url": res.data.url,
 					"content": str,
-					"to_uid" : to_uid,
+					"to_uid": to_uid,
 				}
 			})
 
-			console.log("send_data",send_data)
+			console.log("send_data", send_data)
 			ws.send(send_data);
 
 
@@ -355,28 +364,28 @@ $(document).ready(function(){
 			toLow();
 
 			// 解决input上传文件选择同一文件change事件不生效
-			event.target.value=''
+			event.target.value = ''
 
 			layer.close(window.layerIndex);
-		}).fail(function(res) {});
+		}).fail(function (res) { });
 
 
 
 	});
 
 	// 发送消息
-	
+
 	//$('.text input').focus();
 	$("#emojionearea2")[0].emojioneArea.setFocus()
-	$('#subxx').click(function(event) {
+	$('#subxx').click(function (event) {
 		//var str = $('.text input').val(); // 获取聊天内容
 		var str = $("#emojionearea2")[0].emojioneArea.getText() // 获取聊天内容
-		str = str.replace(/\</g,'&lt;');
-		str = str.replace(/\>/g,'&gt;');
-		str = str.replace(/\n/g,'<br/>');
-		str = str.replace(/\[em_([0-9]*)\]/g,'<img src="images/face/$1.gif" alt="" />');
+		str = str.replace(/\</g, '&lt;');
+		str = str.replace(/\>/g, '&gt;');
+		str = str.replace(/\n/g, '<br/>');
+		str = str.replace(/\[em_([0-9]*)\]/g, '<img src="images/face/$1.gif" alt="" />');
 
-		if($.trim(str)!=='') {
+		if ($.trim(str) !== '') {
 
 			let to_uid = "0"
 			let status = 3
@@ -397,8 +406,8 @@ $(document).ready(function(){
 					"avatar_id": $('.room').attr('data-avatar_id'),
 					"room_id": $('.room').attr('data-room_id'),
 					"content": str,
-					"image_url" : "",
-					"to_uid" : to_uid,
+					"image_url": "",
+					"to_uid": to_uid,
 				}
 			})
 
@@ -413,6 +422,37 @@ $(document).ready(function(){
 		$("#emojionearea2")[0].emojioneArea.setFocus()
 	});
 
+	// 撤回消息
+	$(document).on('click', '.recall-btn', function (e) {
+		console.log('点击了撤回按钮');
+		var messageId = $(this).data('message-id');
+		var createdAt = $(this).closest('li').data('created-at');
+		console.log('消息ID:', messageId);
+		console.log('创建时间:', createdAt);
+		var now = new Date();
+		var createdTime = new Date(createdAt);
+		var diffMinutes = (now - createdTime) / (1000 * 60);
+		console.log('时间差(分钟):', diffMinutes);
+
+		if (diffMinutes > 2) {
+			layer.msg('消息发送超过2分钟，无法撤回');
+			return;
+		}
+
+		let send_data = JSON.stringify({
+			"status": 6,
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": $('.room').attr('data-room_id'),
+				"message_id": messageId,
+				"to_uid": "0"
+			}
+		});
+		console.log('发送撤回消息:', send_data);
+		ws.send(send_data);
+	});
 
 
 
@@ -441,67 +481,69 @@ $(document).ready(function(){
 
 
 
-// -----下边的代码不用管---------------------------------------
+
+	// -----下边的代码不用管---------------------------------------
 
 
 
 	jQuery('.scrollbar-macosx').scrollbar();
-	$('.topnavlist li a.a-user-list').click(function(event) {
+	$('.topnavlist li a.a-user-list').click(function (event) {
 		$('.topnavlist .popover').not($(this).next('.popover')).removeClass('show');
 		$(this).next('.popover').toggleClass('show');
-		if($(this).next('.popover').attr('class')!='popover fade bottom in') {
+		if ($(this).next('.popover').attr('class') != 'popover fade bottom in') {
 			$('.clapboard').removeClass('hidden');
-		}else{
+		} else {
 			$('.clapboard').click();
 		}
 	});
-	$('.clapboard').click(function(event) {
+	$('.clapboard').click(function (event) {
 		$('.topnavlist .popover').removeClass('show');
 		$(this).addClass('hidden');
 		$('.user_portrait img').attr('portrait_id', $('.user_portrait img').attr('ptimg'));
 		$('.user_portrait img').attr('src', '/static/images/user/' + $('.user_portrait img').attr('ptimg') + '.png');
 		$('.select_portrait img').removeClass('t');
-		$('.select_portrait img').eq($('.user_portrait img').attr('ptimg')-1).addClass('t');
+		$('.select_portrait img').eq($('.user_portrait img').attr('ptimg') - 1).addClass('t');
 		$('.rooms .user_name input').val('');
 	});
-	$('.select_portrait img').hover(function() {
+	$('.select_portrait img').hover(function () {
 		var portrait_id = $(this).attr('portrait_id');
 		$('.user_portrait img').attr('src', '/static/images/user/' + portrait_id + '.png');
-	}, function() {
+	}, function () {
 		var t_id = $('.user_portrait img').attr('portrait_id');
 		$('.user_portrait img').attr('src', '/static/images/user/' + t_id + '.png');
 	});
-	$('.select_portrait img').click(function(event) {
+	$('.select_portrait img').click(function (event) {
 		var portrait_id = $(this).attr('portrait_id');
 		$('.user_portrait img').attr('portrait_id', portrait_id);
 		$('.select_portrait img').removeClass('t');
 		$(this).addClass('t');
 	});
-	$('.face_btn,.faces').hover(function() {
+	$('.face_btn,.faces').hover(function () {
 		$('.faces').addClass('show');
-	}, function() {
+	}, function () {
 		$('.faces').removeClass('show');
 	});
-	$('.faces img').click(function(event) {
-		if($(this).attr('alt')!='') {
+	$('.faces img').click(function (event) {
+		if ($(this).attr('alt') != '') {
 			$('.text input').val($('.text input').val() + '[em_' + $(this).attr('alt') + ']');
 		}
 		$('.faces').removeClass('show');
 		$('.text input').focus();
 	});
-	$('.imgFileico').click(function(event) {
+	$('.imgFileico').click(function (event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
-		if(message!='') {
+	function sends_message(userName, userPortrait, message) {
+		if (message != '') {
 
 			let myDate = new Date();
-			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString();
+			let tempId = 'temp_' + Date.now(); // 临时ID，稍后会被替换为实际的消息ID
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-message-id="' + tempId + '" data-created-at="' + myDate.toISOString() + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>' + time + '</i><a href="javascript:;" class="recall-btn" data-message-id="' + tempId + '">撤回</a><div class="">' + message + '</div></li>');
 		}
 	}
-	$('.text input').keypress(function(e) {
-		if (e.which == 13){
+	$('.text input').keypress(function (e) {
+		if (e.which == 13) {
 			$('#subxx').click();
 		}
 	});
@@ -519,19 +561,17 @@ $(document).ready(function(){
 
 });
 
-function getQueryVariable(variable)
-{
+function getQueryVariable(variable) {
 	var query = window.location.search.substring(1);
 	var vars = query.split("&");
-	for (var i=0;i<vars.length;i++) {
+	for (var i = 0; i < vars.length; i++) {
 		var pair = vars[i].split("=");
-		if(pair[0] == variable){return pair[1];}
+		if (pair[0] == variable) { return pair[1]; }
 	}
-	return(false);
+	return (false);
 }
 
-function isPrivateChat()
-{
+function isPrivateChat() {
 	return window.location.href.search('private-chat') > 0
 }
 

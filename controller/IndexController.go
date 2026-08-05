@@ -128,3 +128,32 @@ func Pagination(c *gin.Context) {
 		},
 	})
 }
+
+func RecallMessage(c *gin.Context) {
+	messageIdStr := c.PostForm("message_id")
+	messageId, e := strconv.ParseUint(messageIdStr, 10, 32)
+	if e != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": 1,
+			"msg":  "参数错误",
+		})
+		return
+	}
+
+	userInfo := user_service.GetUserInfo(c)
+	userId := int(userInfo["uid"].(uint))
+
+	err := models.RecallMessage(uint(messageId), userId)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 1,
+			"msg":  "撤回失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "撤回成功",
+	})
+}

@@ -65,30 +65,29 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-message-id="{{ .id }}" data-created-at="{{ .created_at }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
 
                             {{ if eq .image_url $nullSrl }}
-
-                            <div>{{ .content }}</div>
+                            <div class="message-content">{{ if .is_recalled }}<span style="color:#999;">[消息已撤回]</span>{{ else }}{{ .content }}{{ end }}</div>
                                 {{else}}
-                            <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                            <div class="message-content">{{ if .is_recalled }}<span style="color:#999;">[消息已撤回]</span>{{ else }}<img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/>{{ end }}</div>
                                 {{end}}
+                            {{ if not .is_recalled }}<div class="recall-btn" style="display:none; cursor:pointer; color:#007bff; font-size:12px;">撤回</div>{{ end }}
                         </li>
 
                     {{else}}
 
-                        <li class="left">
+                        <li class="left" data-message-id="{{ .id }}" data-created-at="{{ .created_at }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
                             {{ if eq .image_url $nullSrl }}
-
-                                <div>{{ .content }}</div>
+                                <div class="message-content">{{ if .is_recalled }}<span style="color:#999;">[消息已撤回]</span>{{ else }}{{ .content }}{{ end }}</div>
                             {{else}}
-                                <div><img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/></div>
+                                <div class="message-content">{{ if .is_recalled }}<span style="color:#999;">[消息已撤回]</span>{{ else }}<img class="load-img" data-src="{{ .image_url }}" src="https://cdn.jsdelivr.net/gh/hezhizheng/static-image-hosting@master/image-hosting/20210420094013_LVZYIITUUVRWREEE.jpg"/>{{ end }}</div>
                             {{end}}
                         </li>
 
@@ -135,7 +134,32 @@
 
 <script>
 
+    function parseCreatedAt(createdAt) {
+        let parts = createdAt.split(' ');
+        let dateParts = parts[0].split('-');
+        let timeParts = parts[1].split(':');
+        return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0], timeParts[1], timeParts[2]).getTime();
+    }
+
     $(document).ready(function () {
+        // 初始化历史消息的撤回按钮
+        $('.right[data-message-id]').each(function() {
+            let $li = $(this);
+            let messageId = $li.data('message-id');
+            let createdAtStr = $li.data('created-at');
+            let createdAt = parseCreatedAt(createdAtStr);
+            let now = Date.now();
+            let timeDiff = (now - createdAt) / 1000;
+            
+            if (timeDiff < 120) {
+                $li.find('.recall-btn').show();
+                
+                setTimeout(function() {
+                    $li.find('.recall-btn').hide();
+                }, (120 - timeDiff) * 1000);
+            }
+        });
+
         // WebSocketConnect
 
         let userInfo = {

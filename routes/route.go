@@ -38,6 +38,7 @@ func InitRoute() *gin.Engine {
 			authorized.GET("/private-chat", controller.PrivateChat)
 			authorized.POST("/img-kr-upload", controller.ImgKrUpload)
 			authorized.GET("/pagination", controller.Pagination)
+			authorized.POST("/recall-message", controller.RecallMessage)
 		}
 
 	}

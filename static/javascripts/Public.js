@@ -119,6 +119,14 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							received_msg.data.content +
 							'</div></li>');
 					}
+					// 更新临时消息ID为实际消息ID
+				if (received_msg.data.uid == userInfo.uid && !isPrivateChat() && received_msg.data.msg_id) {
+					// 找到最新的临时消息并更新其ID
+					let tempMsg = $('.chat_info li.right[data-msg-id^="temp_"]').last();
+					if (tempMsg.length > 0) {
+						tempMsg.attr('data-msg-id', received_msg.data.msg_id);
+					}
+				}
 					break;
 				case -1:
 					ws.close() // 主动close掉
@@ -160,6 +168,16 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 					if (!isPrivateChat())
 					{
 						layer.msg(received_msg.data.username+'：'+ received_msg.data.content);
+					}
+					break;
+				case 6:
+					// 消息撤回
+					let msgId = received_msg.data.msg_id || received_msg.data.content; // 兼容不同的消息格式
+					let success = received_msg.data.success || (received_msg.data.count === 1); // 兼容不同的成功状态表示
+					if (success) {
+						$('li[data-msg-id="' + msgId + '"]').remove();
+					} else {
+						layer.msg('消息撤回失败，可能已超过2分钟');
 					}
 					break;
 				default:
@@ -413,6 +431,32 @@ $(document).ready(function(){
 		$("#emojionearea2")[0].emojioneArea.setFocus()
 	});
 
+	// 消息撤回
+	$(document).on('click', '.delete-msg', function(e) {
+		let msgId = $(this).closest('li').attr('data-msg-id');
+		if (confirm('确定要撤回这条消息吗？')) {
+			let to_uid = "0";
+			let status = 6;
+			if (isPrivateChat()) {
+				// 私聊
+				to_uid = getQueryVariable("uid");
+				status = 6; // 私聊也使用相同的撤回消息类型
+			}
+			let send_data = JSON.stringify({
+				"status": status,
+				"data": {
+					"uid": $('.room').attr('data-uid').toString(),
+					"username": $('.room').attr('data-username'),
+					"avatar_id": $('.room').attr('data-avatar_id'),
+					"room_id": $('.room').attr('data-room_id'),
+					"content": msgId, // 消息ID存储在content字段中
+					"to_uid": to_uid
+				}
+			});
+			ws.send(send_data);
+		}
+	});
+
 
 
 
@@ -497,7 +541,9 @@ $(document).ready(function(){
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			// 生成临时消息ID，服务器返回后会更新
+			let tempMsgId = 'temp_' + Date.now();
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" data-msg-id="' + tempMsgId + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><span class="delete-msg" style="cursor: pointer; color: #999; font-size: 12px; margin-left: 10px;">撤回</span><div class="">' + message  +'</div></li>');
 		}
 	}
 	$('.text input').keypress(function(e) {

@@ -65,10 +65,11 @@
 
                     {{if eq $uid .user_id}}
 
-                        <li class="right">
+                        <li class="right" data-msg-id="{{ .id }}">
                             <img src="/static/images/user/{{ .avatar_id }}.png" alt="">
                             <b>{{ .username }}</b>
                             <i>{{ .created_at }}</i>
+                            <span class="delete-msg" style="cursor: pointer; color: #999; font-size: 12px; margin-left: 10px;">撤回</span>
 
                             {{ if eq .image_url $nullSrl }}
 

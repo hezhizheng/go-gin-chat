@@ -14,10 +14,74 @@ let websocketHeartbeatJs = new WebsocketHeartbeatJs(websocketHeartbeatJsOptions)
 let ws = websocketHeartbeatJs;
 // let ws = new WebSocket("ws://"+ window.location.host +"/ws");
 
+// 存储发送的消息ID和时间，用于撤回功能
+let sentMessages = {};
+
 function _time(time = +new Date()) {
 	var date = new Date(time + 8 * 3600 * 1000); // 增加8小时
 	return date.toJSON().substr(0, 19).replace('T', ' ');
 	//return date.toJSON().substr(0, 19).replace('T', ' ').replace(/-/g, '/');
+}
+
+// 生成唯一的消息元素ID
+function generateMsgElementId(msgId) {
+	return 'msg-' + msgId;
+}
+
+// 发送撤回消息请求
+function recallMessage(msgId) {
+	let send_data = JSON.stringify({
+		"status": 6,
+		"data": {
+			"uid": $('.room').attr('data-uid').toString(),
+			"username": $('.room').attr('data-username'),
+			"avatar_id": $('.room').attr('data-avatar_id'),
+			"room_id": $('.room').attr('data-room_id'),
+			"msg_id": msgId,
+		}
+	});
+	ws.send(send_data);
+}
+
+// 检查消息是否可以撤回（2分钟内）
+function canRecallMessage(sendTime) {
+	let now = new Date().getTime();
+	let diff = now - sendTime;
+	return diff <= 2 * 60 * 1000; // 2分钟
+}
+
+// 显示撤回提示菜单
+function showRecallMenu(element, msgId, sendTime) {
+	// 移除已存在的菜单
+	$('.recall-menu').remove();
+	
+	if (!canRecallMessage(sendTime)) {
+		return;
+	}
+	
+	let menu = $('<div class="recall-menu" style="position: absolute; background: #fff; border: 1px solid #ccc; padding: 5px 10px; border-radius: 4px; cursor: pointer; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">撤回消息</div>');
+	
+	menu.click(function(e) {
+		e.stopPropagation();
+		recallMessage(msgId);
+		menu.remove();
+	});
+	
+	// 定位菜单
+	let offset = element.offset();
+	menu.css({
+		'top': offset.top - 35,
+		'left': offset.left
+	});
+	
+	$('body').append(menu);
+	
+	// 点击其他地方关闭菜单
+	setTimeout(function() {
+		$(document).one('click', function() {
+			menu.remove();
+		});
+	}, 100);
 }
 
 function WebSocketConnect(userInfo,toUserInfo = null) {
@@ -108,8 +172,11 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 				case 3:
 					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
 					{
+						// 收到其他用户的消息
+						let msgId = received_msg.data.msg_id;
+						let msgElementId = generateMsgElementId(msgId);
 						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
+							'<li class="left" id="' + msgElementId + '"><img src="/static/images/user/' +
 							received_msg.data.avatar_id +
 							'.png" alt=""><b>' +
 							received_msg.data.username +
@@ -118,6 +185,51 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 							'</i><div class="aaa">' +
 							received_msg.data.content +
 							'</div></li>');
+					} else if (received_msg.data.uid == userInfo.uid && !isPrivateChat()) {
+						// 收到自己发送消息的确认，更新消息ID
+						let msgId = received_msg.data.msg_id;
+						// 查找最新的临时消息元素并更新其ID和事件
+						let $tempMsg = $('.chat_info li.right[id^="temp-"]').last();
+						if ($tempMsg.length > 0) {
+							let newId = generateMsgElementId(msgId);
+							$tempMsg.attr('id', newId);
+							
+							// 更新存储的消息信息
+							let tempId = $tempMsg.attr('id');
+							if (sentMessages[tempId]) {
+								sentMessages[msgId] = sentMessages[tempId];
+								delete sentMessages[tempId];
+							}
+							
+							// 重新绑定右键事件
+							let sendTime = new Date().getTime();
+							$tempMsg.off('contextmenu').on('contextmenu', function(e) {
+								e.preventDefault();
+								showRecallMenu($(this), msgId, sendTime);
+							});
+						}
+					}
+					break;
+				case 6:
+					// 撤回消息
+					let recallMsgId = received_msg.data.msg_id;
+					let recallElementId = generateMsgElementId(recallMsgId);
+					let $msgElement = $('#' + recallElementId);
+					
+					if (received_msg.data.is_recalled === 1) {
+						// 撤回成功，更新UI
+						if ($msgElement.length > 0) {
+							$msgElement.find('div').html('<span style="color: #999; font-style: italic;">消息已被撤回</span>');
+						}
+						// 如果是自己撤回的，显示提示
+						if (received_msg.data.uid == userInfo.uid) {
+							layer.msg('消息已撤回');
+						}
+					} else if (received_msg.data.is_recalled === -1) {
+						// 撤回失败，显示错误信息
+						if (received_msg.data.uid == userInfo.uid) {
+							layer.msg(received_msg.data.content);
+						}
 					}
 					break;
 				case -1:
@@ -332,7 +444,9 @@ $(document).ready(function(){
 				status = 5
 			}
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			// 先显示消息，使用临时ID
+			let tempMsgId = 'temp-' + new Date().getTime();
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempMsgId);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -387,7 +501,9 @@ $(document).ready(function(){
 			}
 
 
-			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str); // sends_message(昵称,头像id,聊天内容);
+			// 先显示消息，使用临时ID
+			let tempMsgId = 'temp-' + new Date().getTime();
+			sends_message($('.room').attr('data-username'), $('.room').attr('data-avatar_id'), str, tempMsgId);
 
 			let send_data = JSON.stringify({
 				"status": status,
@@ -492,12 +608,29 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
+	function sends_message (userName, userPortrait, message, msgId) {
 		if(message!='') {
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			let msgElementId = generateMsgElementId(msgId);
+			let sendTime = new Date().getTime();
+			
+			// 存储消息信息
+			sentMessages[msgId] = {
+				time: sendTime,
+				elementId: msgElementId
+			};
+			
+			let $msgElement = $('<li class="right" id="' + msgElementId + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			
+			// 添加右键菜单事件
+			$msgElement.on('contextmenu', function(e) {
+				e.preventDefault();
+				showRecallMenu($(this), msgId, sendTime);
+			});
+			
+			$('.main .chat_info').append($msgElement);
 		}
 	}
 	$('.text input').keypress(function(e) {

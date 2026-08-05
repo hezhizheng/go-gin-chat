@@ -106,20 +106,40 @@ function WebSocketConnect(userInfo,toUserInfo = null) {
 						'</span></li>');
 					break;
 				case 3:
-					if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
-					{
-						chat_info.html(chat_info.html() +
-							'<li class="left"><img src="/static/images/user/' +
-							received_msg.data.avatar_id +
-							'.png" alt=""><b>' +
-							received_msg.data.username +
-							'</b><i>' +
-							time +
-							'</i><div class="aaa">' +
-							received_msg.data.content +
-							'</div></li>');
+				if ( received_msg.data.uid != userInfo.uid && !isPrivateChat())
+				{
+					chat_info.html(chat_info.html() +
+						'<li class="left" data-msg-id="' + received_msg.data.msg_id + '" data-uid="' + received_msg.data.uid + '"><img src="/static/images/user/' +
+						received_msg.data.avatar_id +
+						'.png" alt=""><b>' +
+						received_msg.data.username +
+						'</b><i>' +
+						time +
+						'</i><div class="aaa">' +
+						received_msg.data.content +
+						'</div></li>');
+				} else if ( received_msg.data.uid == userInfo.uid && received_msg.data.msg_id && !isPrivateChat()) {
+					// 更新自己发送的消息的ID
+					var $lastRightMsg = $('.chat_info li.right:last');
+					if ($lastRightMsg.length > 0 && !$lastRightMsg.attr('data-msg-id')) {
+						$lastRightMsg.attr('data-msg-id', received_msg.data.msg_id);
+						$lastRightMsg.attr('data-msg-time', new Date().getTime());
 					}
-					break;
+				}
+				break;
+			case 6:
+				// 撤回消息通知
+				var msgId = received_msg.data.msg_id;
+				var $msgElement = $('li[data-msg-id="' + msgId + '"]');
+				if ($msgElement.length > 0) {
+					$msgElement.find('div').html('<span style="color: #999; font-style: italic;">消息已撤回</span>');
+					$msgElement.find('div').addClass('withdrawn');
+				}
+				break;
+			case -2:
+				// 撤回失败错误提示
+				layer.msg(received_msg.data.content);
+				break;
 				case -1:
 					ws.close() // 主动close掉
 					isServeClose = 1
@@ -492,14 +512,95 @@ $(document).ready(function(){
 	$('.imgFileico').click(function(event) {
 		$('.imgFileBtn').click();
 	});
-	function sends_message (userName, userPortrait, message) {
+	// 存储最近发送的消息ID，用于撤回
+	var lastSentMsgId = null;
+	var lastSentMsgTime = null;
+
+	function sends_message (userName, userPortrait, message, msgId) {
 		if(message!='') {
 
 			let myDate = new Date();
 			let time = myDate.toLocaleDateString() + myDate.toLocaleTimeString()
-			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			var msgIdAttr = msgId ? 'data-msg-id="' + msgId + '"' : '';
+			$('.main .chat_info').html($('.main .chat_info').html() + '<li class="right" ' + msgIdAttr + ' data-uid="' + $('.room').attr('data-uid') + '"><img src="/static/images/user/' + userPortrait + '.png" alt=""><b>' + userName + '</b><i>'+ time +'</i><div class="">' + message  +'</div></li>');
+			
+			// 保存消息ID和时间，用于撤回
+			if (msgId) {
+				lastSentMsgId = msgId;
+				lastSentMsgTime = new Date().getTime();
+			}
 		}
 	}
+
+	// 撤回消息函数
+	function withdrawMessage(msgId) {
+		if (!msgId) {
+			layer.msg('消息ID不存在，无法撤回');
+			return;
+		}
+
+		let to_uid = "0";
+		if (isPrivateChat()) {
+			to_uid = getQueryVariable("uid");
+		}
+
+		let send_data = JSON.stringify({
+			"status": 6, // 撤回消息类型
+			"data": {
+				"uid": $('.room').attr('data-uid').toString(),
+				"username": $('.room').attr('data-username'),
+				"avatar_id": $('.room').attr('data-avatar_id'),
+				"room_id": $('.room').attr('data-room_id'),
+				"msg_id": msgId,
+				"to_uid": to_uid,
+			}
+		});
+
+		ws.send(send_data);
+	}
+
+	// 检查消息是否可以撤回（2分钟内）
+	function canWithdraw(msgTime) {
+		if (!msgTime) return false;
+		var now = new Date().getTime();
+		return (now - msgTime) <= 2 * 60 * 1000; // 2分钟
+	}
+
+	// 创建右键菜单
+	function createContextMenu(x, y, msgId, msgElement) {
+		// 移除已存在的菜单
+		$('.context-menu').remove();
+
+		var $menu = $('<div class="context-menu" style="position: fixed; background: #fff; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 9999; padding: 5px 0;">' +
+			'<div class="context-menu-item withdraw-item" style="padding: 8px 16px; cursor: pointer; font-size: 14px; color: #333;">撤回消息</div>' +
+			'</div>');
+
+		$menu.css({ left: x, top: y });
+		$('body').append($menu);
+
+		// 点击撤回
+		$menu.find('.withdraw-item').click(function(e) {
+			e.preventDefault();
+			withdrawMessage(msgId);
+			$menu.remove();
+		});
+
+		// 点击其他地方关闭菜单
+		$(document).one('click', function() {
+			$menu.remove();
+		});
+	}
+
+	// 绑定右键菜单事件
+	$(document).on('contextmenu', '.chat_info li.right', function(e) {
+		e.preventDefault();
+		var msgId = $(this).attr('data-msg-id');
+		var msgTime = $(this).attr('data-msg-time');
+		
+		if (msgId && !$(this).find('div').hasClass('withdrawn')) {
+			createContextMenu(e.clientX, e.clientY, parseInt(msgId), $(this));
+		}
+	});
 	$('.text input').keypress(function(e) {
 		if (e.which == 13){
 			$('#subxx').click();

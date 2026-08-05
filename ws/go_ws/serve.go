@@ -33,16 +33,18 @@ type wsClients struct {
 }
 
 type msgData struct {
-	Uid      string        `json:"uid"`
-	Username string        `json:"username"`
-	AvatarId string        `json:"avatar_id"`
-	ToUid    string        `json:"to_uid"`
-	Content  string        `json:"content"`
-	ImageUrl string        `json:"image_url"`
-	RoomId   string        `json:"room_id"`
-	Count    int           `json:"count"`
-	List     []interface{} `json:"list"`
-	Time     int64         `json:"time"`
+	Uid          string        `json:"uid"`
+	Username     string        `json:"username"`
+	AvatarId     string        `json:"avatar_id"`
+	ToUid        string        `json:"to_uid"`
+	Content      string        `json:"content"`
+	ImageUrl     string        `json:"image_url"`
+	RoomId       string        `json:"room_id"`
+	Count        int           `json:"count"`
+	List         []interface{} `json:"list"`
+	Time         int64         `json:"time"`
+	MsgId        int           `json:"msg_id"`        // 消息ID，用于撤回
+	IsWithdrawn  int           `json:"is_withdrawn"`  // 是否已撤回
 }
 
 // client & serve 的消息体
@@ -89,6 +91,7 @@ const msgTypeOffline = 2       // 离线
 const msgTypeSend = 3          // 消息发送
 const msgTypeGetOnlineUser = 4 // 获取用户列表
 const msgTypePrivateChat = 5   // 私聊
+const msgTypeWithdraw = 6      // 撤回消息
 
 const roomCount = 6 // 房间总数
 
@@ -275,6 +278,8 @@ func write(done <-chan struct{}) {
 					toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, serveMsgStr)
 				}
 				<-chNotify
+			case msgTypeWithdraw:
+				handleWithdrawMessage(cl, string(serveMsgStr))
 			}
 		case o := <-offline:
 			disconnect(o)
@@ -454,9 +459,10 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 		// 保存消息
 		intUid, _ := strconv.Atoi(uid)
 
+		var savedMsg models.Message
 		if imageUrl != "" {
 			// 存在图片
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -464,7 +470,7 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 				"image_url":  imageUrl,
 			})
 		} else {
-			models.SaveContent(map[string]interface{}{
+			savedMsg = models.SaveContent(map[string]interface{}{
 				"user_id":    intUid,
 				"to_user_id": toUid,
 				"content":    data.Content,
@@ -472,6 +478,8 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 			})
 		}
 
+		// 保存消息ID到数据中，用于后续撤回
+		data.MsgId = int(savedMsg.ID)
 	}
 
 	if status == msgTypeGetOnlineUser {
@@ -488,6 +496,80 @@ func formatServeMsgStr(status int, conn *websocket.Conn) ([]byte, msg) {
 	serveMsgStr, _ := json.Marshal(jsonStrServeMsg)
 
 	return serveMsgStr, jsonStrServeMsg
+}
+
+// handleWithdrawMessage 处理撤回消息
+func handleWithdrawMessage(cl msg, serveMsgStr string) {
+	// 读取clientMsg需要加锁
+	clientMsgLock.Lock()
+	msgId := cl.Data.MsgId
+	uid := cl.Data.Uid
+	roomId := cl.Data.RoomId
+	toUid := cl.Data.ToUid
+	clientMsgLock.Unlock()
+
+	intUid, _ := strconv.Atoi(uid)
+	intMsgId := msgId
+
+	// 执行撤回操作
+	success, errMsg := models.WithdrawMessage(intMsgId, intUid)
+
+	if success {
+		data := msgData{
+			Uid:         uid,
+			MsgId:       intMsgId,
+			RoomId:      roomId,
+			ToUid:       toUid,
+			IsWithdrawn: 1,
+			Time:        time.Now().UnixNano() / 1e6,
+		}
+
+		withdrawMsg := msg{
+			Status: msgTypeWithdraw,
+			Data:   data,
+		}
+
+		withdrawMsgStr, _ := json.Marshal(withdrawMsg)
+
+		// 根据是群聊还是私聊发送撤回通知
+		if toUid == "" || toUid == "0" {
+			// 群聊 - 通知房间内所有人
+			roomIdInt, _ := strconv.Atoi(roomId)
+			chNotify <- 1
+			assignRoom := rooms[roomIdInt]
+			for _, con := range assignRoom {
+				con.(wsClients).Conn.WriteMessage(websocket.TextMessage, withdrawMsgStr)
+			}
+			<-chNotify
+		} else {
+			// 私聊 - 通知发送者和接收者
+			chNotify <- 1
+			// 通知发送者
+			cl.Conn.WriteMessage(websocket.TextMessage, withdrawMsgStr)
+			// 通知接收者
+			toC := findToUserCoonClient()
+			if toC != nil {
+				toC.(wsClients).Conn.WriteMessage(websocket.TextMessage, withdrawMsgStr)
+			}
+			<-chNotify
+		}
+
+		log.Println("消息撤回成功:", intMsgId, "用户:", uid)
+	} else {
+		// 撤回失败，发送错误消息给请求者
+		data := msgData{
+			Content: errMsg,
+		}
+		errMsgData := msg{
+			Status: -2, // 错误状态码
+			Data:   data,
+		}
+		errMsgStr, _ := json.Marshal(errMsgData)
+		chNotify <- 1
+		cl.Conn.WriteMessage(websocket.TextMessage, errMsgStr)
+		<-chNotify
+		log.Println("消息撤回失败:", intMsgId, "用户:", uid, "错误:", errMsg)
+	}
 }
 
 func getRoomId() (string, int) {

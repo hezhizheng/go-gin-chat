@@ -9,3 +9,11 @@ func GetLimitMsg(roomId string, offset int) []map[string]interface{} {
 func GetLimitPrivateMsg(uid, toUId string , offset int) []map[string]interface{} {
 	return models.GetLimitPrivateMsg(uid, toUId,offset)
 }
+
+func WithdrawMessage(msgId int, userId int) (bool, string) {
+	return models.WithdrawMessage(msgId, userId)
+}
+
+func GetMessageById(msgId int) (models.Message, error) {
+	return models.GetMessageById(msgId)
+}
